@@ -1,2 +1,3 @@
 # links-examples
-Example Links appllications
+
+This respository collects various larger Links applications.
