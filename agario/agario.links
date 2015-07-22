@@ -1,0 +1,641 @@
+#
+# LISTS
+#
+
+fun lsMgame_access_point(f, l) {
+    if (lsEmpty(l)) lsNilF()
+    else lsCons(f(lsHead(l)), lsMgame_access_point(f, lsTail(l)))
+}
+
+fun lsFilter(p, l) {
+    if (lsEmpty(l)) lsNilF()
+    else if (p(lsHead(l))) lsCons(lsHead(l), lsFilter(p, lsTail(l)))
+    else lsFilter(p, lsTail(l))
+}
+
+fun lsMgame_access_pointIgnore(f, l) {
+    if (lsEmpty(l)) ()
+    else { var _ = f(lsHead(l)); lsMgame_access_pointIgnore(f, lsTail(l)) }
+}
+
+fun lsCatMaybes(l) {
+    if (lsEmpty(l)) lsNilF()
+    else switch (lsHead(l)) {
+        case Just(x) -> lsCons(x, lsCatMaybes(lsTail(l)))
+        case Nothing -> lsCatMaybes(lsTail(l))
+    }
+}
+
+fun lsFoldLeft(f, i, l) {
+    if (lsEmpty(l)) i
+    else lsFoldLeft(f, f(i, lsHead(l)), lsTail(l))
+}
+
+fun lsUnzip(l) {
+    switch (lsEmpty(l)) {
+        case false -> {var prev_l = lsUnzip(lsTail(l));
+                       (lsCons(lsHead(l).1, prev_l.1), lsCons(lsHead(l).2, prev_l.2)) }
+        case true -> (lsNilF(), lsNilF())
+    }
+}
+
+fun lsDictAdd(k, v, dict) {
+    switch (lsEmpty(dict)) {
+        case true -> lsCons((k, v), lsNilF())
+        case false -> {
+            if (k == lsHead(dict).1)
+                lsCons((k, v), lsTail(dict))
+            else
+                lsCons(lsHead(dict), lsDictAdd(k ,v, lsTail(dict)))
+        }
+    }
+}
+
+fun lsDictLookup(k, dict) {
+    switch(lsEmpty(dict)) {
+        case true -> Nothing
+        case false -> {
+            if (k == lsHead(dict).1)
+                Just(lsHead(dict).2)
+            else
+                lsDictLookup(k, lsTail(dict))
+        }
+    }
+}
+
+fun highest_mass_player(max_mass_player, dict) {
+    switch (lsEmpty(dict)) {
+        case true -> max_mass_player
+        case false -> {
+            var curr_player = lsHead(dict).2; 
+            if (max_mass_player.mass > curr_player.mass)
+                highest_mass_player(max_mass_player, lsTail(dict))
+            else
+                highest_mass_player(curr_player, lsTail(dict))
+        }
+    }
+}
+########
+
+var pi = 3.141593;
+var state_node_id = "state_node";
+
+fun floatAbs(a: Float) {
+    if (a >= 0.0) a else -.a
+}
+
+fun store_int(name: String, value: Int) {
+    var state_node = getNodeById(state_node_id);
+    ignore(domSetAttributeFromRef(state_node, name, intToString(value)))
+}
+
+fun get_int(name: String) {
+    var state_node = getNodeById(state_node_id);
+    if (domHasAttribute(state_node, name))
+        Just(stringToInt(domGetAttributeFromRef(state_node, name)))
+    else
+        Nothing
+}
+
+
+########################################################################
+
+typename Input = [| KeyUp: Int | KeyDown: Int | Cursor: (Int, Int) |];
+typename PlayerState = (name: String, x: Float, y: Float, mass: Int, colour: (String, String));
+typename ScreenState = (x: Float, y: Float, scale: Float);
+typename FoodState = (pos: [(Float, Float)], colour: [String]);
+typename GameState = (screen: ScreenState, players: [(Int, PlayerState)], food: FoodState);
+
+typename Game = [&| Move: ?Int.?Input.!Bool.!GameState.End,
+                    AddPlayer: ?Int.?String.!GameState.End |&];
+typename Client = [&| InputMsg: ?Int.?Input.End,
+                      NewPlayer: ?String.!Int.!GameState.End |&];
+typename InitiateGame = [&| Start: ?String.!GameState.End |&];
+
+fun dec_to_hex(d: Int) {
+    # only works for 2-digit hex numbers
+    var hex = ls([mod(d/16, 16), mod(d, 16)]);
+    var hex_str = lsMgame_access_point(fun(x) {switch(x) {
+                                    case "10" -> "A"
+                                    case "11" -> "B"
+                                    case "12" -> "C"
+                                    case "13" -> "D"
+                                    case "14" -> "E"
+                                    case "15" -> "F"
+                                    case x -> x}}, 
+                         lsMgame_access_point(intToString, hex));
+    lsHead(hex_str) ^^ lsHead(lsTail(hex_str))
+}
+
+fun hsv_to_rgb(h: Float, s: Float, v: Float) {
+    var h_i = floatToInt(6.0 *. h);
+    var f = (6.0 *. h) -. intToFloat(h_i);
+    var p = v *. (1.0 -. s);
+    var q = v *. (1.0 -. f *. s);
+    var t = v *. (1.0 -. (1.0 -. f) *. s);
+
+    var rgb = switch (h_i) {
+                case 0 -> ls([v, t, p])
+                case 1 -> ls([q, v, p])
+                case 2 -> ls([p, v, t])
+                case 3 -> ls([p, q, v])
+                case 4 -> ls([t, p, v])
+                case 5 -> ls([v, p ,q])
+            };
+    lsMgame_access_point(fun(x) {dec_to_hex(floatToInt(256.0 *. x))}, rgb)
+}
+
+fun random_colour(h: Float, s:Float, v: Float) {
+    # www.martin.ankerl.com/2009/12/09/how-to-create-random-colors-programmatically
+    var h =
+        if (h == -.1.0) {
+            var grc = 0.618033988749895;
+            var gr = (random() +. grc);
+            if (gr > 1.0) gr -. 1.0 else gr}
+        else
+            h;
+    var vals = hsv_to_rgb(h, s, v);
+    lsFoldLeft(fun(x,y){x^^y}, "#", vals)
+}
+
+fun random_colour_player(s: Float, v: Float) {
+    var grc = 0.618033988749895;
+    var gr = (random() +. grc);
+    var h = if (gr > 1.0) gr -. 1.0 else gr; 
+    (random_colour(h, s -. 0.2, v +. 0.2), random_colour(h, s, v))
+}
+
+fun clear(ctx) {
+    jsClearRect(ctx, 0.0, 0.0, jsCanvasWidth(ctx), jsCanvasHeight(ctx))
+}
+
+fun player_radius(mass) {
+    10.0 *. sqrt(intToFloat(mass)) /. pi
+}
+
+fun euclidean_dist((x1, y1), (x2, y2)) {
+    sqrt( (x1 -. x2) ^. 2.0 +. (y1 -. y2) ^. 2.0 )
+}
+
+### GAME CONSTANTS
+var logging = false;
+
+var left_key_code = 37;
+var up_key_code = 38;
+var right_key_code = 39;
+var down_key_code = 40;
+var m_key_code = 77;
+
+var canvas1 = "canvas1";
+var canvas2 = "canvas2";
+
+var gameWidth = 2000;
+var gameHeight = 2000;
+var screenWidth = 800;
+var screenHeight = 600;
+var screenWidthFloat = intToFloat(screenWidth);
+var screenHeightFloat = intToFloat(screenHeight);
+var x_offset = screenWidthFloat /. 2.0;
+var y_offset = screenHeightFloat /. 2.0;
+var grid_lines_distance = 30;
+
+var step = 5.0;
+var base_velocity = 50.0;
+var base_food_count = 450;
+var food_radius = 10.0;
+
+sig initial_game_state: (InitiateGame) ~> ()
+fun initial_game_state(s) {
+    fun initialize_food(gameWidth, gameHeight, food_count) {
+        var range = lsRange(0, food_count);
+        var positions = lsZip(lsMgame_access_point(fun(x) {intToFloat(gameWidth) *. random()}, range),
+                              lsMgame_access_point(fun(x) {intToFloat(gameHeight) *. random()}, range));
+        var colour = lsMgame_access_point(fun(x) {random_colour(-.1.0, 0.8, 0.9)}, range);
+        (pos=positions, colour=colour): FoodState
+    }
+
+    offer(s) {
+        case Start(s) ->
+            var (player_name, s) = receive(s); 
+            var screen_state = (x=0.0, y=0.0, scale=0.0): ScreenState;
+            var player_state = (name=player_name, x=500.0, y=500.0, mass=20, colour=random_colour_player(0.95, 0.7)): PlayerState;
+            var players = lsDictAdd(1, player_state, lsNilF());
+            var food_state = initialize_food(gameWidth, gameHeight, base_food_count);
+            var state = (screen=screen_state, players=players, food=food_state): GameState;
+            ignore(send(state, s))
+    }
+
+}
+
+
+### RENDERING FUNCTIONS
+fun swgame_access_point_buffers(main_canvas_node, disp_canvas_node) {
+    var ctx = jsGetContext2D(disp_canvas_node);
+    jsDrawImage(ctx, main_canvas_node, 0.0, 0.0);
+
+    ignore(domSetStyleAttrFromRef(main_canvas_node, "display", "block"));
+    ignore(domSetStyleAttrFromRef(disp_canvas_node, "display", "none"));
+    clear(ctx)
+}
+
+fun draw(player_id, state: GameState) {
+
+    var (main_canvas, disp_canvas) = 
+        if (domGetStyleAttrFromRef(getNodeById(canvas1), "display") == "none")
+            (canvas1, canvas2)
+        else
+            (canvas2, canvas1);
+
+    var canvas_node = getNodeById(main_canvas);
+    var ctx = jsGetContext2D(canvas_node);
+
+    var player_maybe = lsDictLookup(player_id, state.players);
+
+    fun draw_grid(player) {
+
+        jsLineWidth(ctx, 1.0);
+        jsStrokeStyle(ctx, "#ddd");
+
+        jsBeginPath(ctx);
+        var xs = lsFilter(fun(x) { x > player.x -. x_offset &&
+                                   x < player.x +. x_offset},
+                          lsMgame_access_point(fun(x){ intToFloat(grid_lines_distance * x) },
+                                lsRange(-screenWidth/2/grid_lines_distance, 
+                                        (gameWidth+screenWidth/2)/grid_lines_distance)));
+        lsMgame_access_pointIgnore(fun(x){ jsMoveTo(ctx, x -. player.x +. x_offset, 0.0);
+                            jsLineTo(ctx, x -. player.x +. x_offset, screenHeightFloat);
+                            jsStroke(ctx)},
+                            xs);
+
+        var ys = lsFilter(fun(y) { y > player.y -. y_offset &&
+                                   y < player.y +. y_offset},
+                          lsMgame_access_point(fun(y){ intToFloat(grid_lines_distance * y) }, 
+                                lsRange(-screenHeight/2/grid_lines_distance, 
+                                        (gameHeight+screenHeight/2)/grid_lines_distance)));
+        lsMgame_access_pointIgnore(fun(y){ jsMoveTo(ctx, 0.0, y -. player.y +. y_offset);
+                            jsLineTo(ctx, screenWidthFloat, y -. player.y +. y_offset);
+                            jsStroke(ctx)},
+                            ys);
+
+        jsClosePath(ctx);
+        
+    }
+
+    fun draw_circle(x: Float, y: Float, r: Float, border_width: Float, fill_colour: String, border_colour: String) {
+        jsBeginPath(ctx);
+        jsArc(ctx, x, y, r, 0.0, 2.0 *. pi, false);
+        jsSetFillColor(ctx, fill_colour);
+        jsFill(ctx);
+        jsLineWidth(ctx, border_width);
+        jsStrokeStyle(ctx, border_colour);
+        jsStroke(ctx);
+        ()
+    }
+
+    fun draw_player_name(player, x, y) {
+        jsSetFillColor(ctx, "black");
+        var font_size = floatToInt(8.0 *. sqrt(sqrt(intToFloat(player.mass))));
+        jsCanvasFont(ctx, intToString(font_size) ^^ "px Ubuntu");
+
+        var draw_x = x -. 0.22 *. intToFloat(length(explode(player.name)) * font_size);
+        var draw_y = y +. 0.22 *. intToFloat(font_size);
+        jsFillText(ctx, player.name, draw_x, draw_y)
+    }
+
+    fun draw_food(player) { 
+        var food_state = state.food;
+        var props = lsZip(food_state.pos, food_state.colour);
+        lsMgame_access_pointIgnore(fun(prop){ 
+                        draw_circle((prop.1).1 -. player.x +. x_offset, 
+                                    (prop.1).2 -. player.y +. y_offset, 
+                                    food_radius, 1.0, prop.2, "grey")
+                    }, lsFilter(fun(prop) { (prop.1).1 > player.x -. x_offset -. food_radius &&
+                                            (prop.1).1 < player.x +. x_offset +. food_radius &&
+                                            (prop.1).2 > player.y -. y_offset -. food_radius &&
+                                            (prop.1).2 < player.y +. y_offset +. food_radius
+                                          }, props))
+    }
+
+    fun draw_players(player, players) {
+        if (lsEmpty(players))
+            ()
+        else {
+            switch (lsHead(players)) {
+                case (id, curr_player) -> {
+                    if (id == player_id) {
+                        var draw_x = screenWidthFloat /. 2.0;
+                        var draw_y = screenHeightFloat /. 2.0;
+                        draw_circle(draw_x, draw_y,
+                                    player_radius(curr_player.mass), 3.0,
+                                    curr_player.colour.1, curr_player.colour.2);
+                        draw_player_name(curr_player, draw_x, draw_y);
+                    } else {
+                        var draw_x = curr_player.x -. player.x +. x_offset;
+                        var draw_y = curr_player.y -. player.y +. y_offset;
+                        draw_circle(draw_x, draw_y,
+                                    player_radius(curr_player.mass), 3.0,
+                                    curr_player.colour.1, curr_player.colour.2);
+                        draw_player_name(curr_player, draw_x, draw_y);
+                    };
+                    draw_players(player, lsTail(players))
+                }
+            }
+        }
+    }
+
+    # if alive, draw the player, else draw the biggest player remaining
+    var player = 
+        if (isJust(player_maybe))
+            fromJust(player_maybe)
+        else
+            highest_mass_player((x=500.0, y=500.0, mass=0, colour=("","")), state.players);
+    draw_grid(player);
+    draw_food(player);
+    draw_players(player, state.players);
+    swgame_access_point_buffers(canvas_node, getNodeById(disp_canvas));
+
+    if (player_maybe == Nothing) {
+        jsSetFillColor(ctx, "black");
+        jsCanvasFont(ctx, "60px Ubuntu");
+        jsFillText(ctx, "Game over!", 230.0, 220.0);
+    } else ();
+    ()
+}
+
+
+### GAME LOGIC
+fun compute_player_mass(player_state) {
+    player_state.mass
+}
+
+fun compute_player_position(player_state, cursor) {
+    var v = base_velocity /. sqrt(intToFloat(player_state.mass));
+
+    # normalised (wrt screen dimensions) difference in dtsance between player and cursor position
+    var delta_x_norm = 2.0 *. (screenWidthFloat /. 2.0 -. intToFloat(cursor.1)) /. screenWidthFloat;
+    var delta_y_norm = 2.0 *. (screenHeightFloat /. 2.0 -. intToFloat(cursor.2)) /. screenHeightFloat;
+    var dir_x = if (delta_x_norm > 0.0) -.1.0 else 1.0;
+    var dir_y = if (delta_y_norm > 0.0) -.1.0 else 1.0;
+
+    if (delta_x_norm == 0.0 && delta_y_norm == 0.0) 
+        (x=player_state.x, y=player_state.y, mass=compute_player_mass(player_state), 
+         name=player_state.name, colour=player_state.colour): PlayerState            
+    else {
+        # compute velocity components depending on ratio of deltas so that total velocity remains constant
+        var delta_ratio = if (delta_y_norm == 0.0) 
+                            1.0 
+                          else 
+                            floatAbs(delta_x_norm) /. floatAbs(delta_y_norm);
+        var delta_y_p = sqrt( (v ^. 2.0) /. (delta_ratio ^. 2.0 +. 1.0) );
+        var delta_x_p = delta_y_p *. delta_ratio;
+
+        var x_p = player_state.x +. dir_x *. delta_x_p;
+        var y_p = player_state.y +. dir_y *. delta_y_p;
+
+        # don't update if player is at borders
+        var x_new = if (x_p < 0.0) 0.0 else if (x_p > intToFloat(gameWidth)) intToFloat(gameWidth) else x_p;
+        var y_new = if (y_p < 0.0) 0.0 else if (y_p > intToFloat(gameHeight)) intToFloat(gameHeight) else y_p;
+        (x=x_new, y=y_new, mass=player_state.mass, colour=player_state.colour, name=player_state.name): PlayerState
+    }
+}
+
+fun update_food(player_id, state: GameState) {
+    
+    var player_maybe = lsDictLookup(player_id, state.players);
+    if (isJust(player_maybe)) {
+        # filter out food particles which are eaten by the player and update player mass accordingly
+        var player = fromJust(player_maybe);
+        var player_pos = (player.x, player.y);
+        var zipped_food_p = lsFilter( fun(x) { euclidean_dist(x.1, player_pos) > player_radius(player.mass) },
+                                      lsZip(state.food.pos, state.food.colour));
+        var (food_pos_p, food_colour_p) = lsUnzip(zipped_food_p);
+
+        # nondeterministically replenish eaten food with increasing probability as
+        # food amount decreases
+        var food_p =
+            if (random() < 1.0 -. intToFloat(lsLength(food_pos_p)) /. intToFloat(base_food_count))
+                (pos=lsCons((intToFloat(gameWidth) *. random(), intToFloat(gameHeight) *. random()), food_pos_p),
+                 colour=lsCons(random_colour(-.1.0, 0.8, 0.9), food_colour_p))
+            else
+                (pos=food_pos_p, colour=food_colour_p);
+        
+        var player_p = (x=player.x, y=player.y, colour=player.colour, name=player.name,
+                 mass=player.mass + (lsLength(state.food.colour) - lsLength(food_colour_p))): PlayerState;
+        var players_p = lsDictAdd(player_id, player_p, state.players);
+        
+        (players=players_p, screen=state.screen, food=food_p): GameState
+    } else
+        state
+}
+
+fun filter_eaten(player_state, players, remove_eaten) {
+    lsFilter( fun(x) {
+            var curr_player = x.2;
+            if (intToFloat(curr_player.mass) *. 1.0  < intToFloat(player_state.mass))
+                if (euclidean_dist((player_state.x, player_state.y), (curr_player.x, curr_player.y)) > player_radius(player_state.mass))
+                    remove_eaten
+                else
+                    not(remove_eaten)
+            else
+                remove_eaten
+        }, players)    
+}
+
+fun update_players(player_id, player_state: PlayerState, players) {
+    #filter out other players eaten by this player
+    var player_mass_p = lsFoldLeft((+), player_state.mass, lsMgame_access_point(fun(x) {(x.2).mass}, filter_eaten(player_state, players, false)));
+    var players_p = filter_eaten(player_state, players, true);
+    lsDictAdd(player_id, (x=player_state.x,
+                          y=player_state.y,
+                          colour=player_state.colour,
+                          name=player_state.name,
+                          mass=player_mass_p): PlayerState, players_p)
+}
+
+fun update_logic(state: GameState, player_id: Int, in_event: Input) {
+    var cursor_xy = switch(in_event) {
+        case Cursor(x,y) -> (x,y)
+        case _ -> (0,0)
+    };
+    var state_new = update_food(player_id, state);
+    var player_state_maybe = lsDictLookup(player_id, state_new.players);
+    if (isJust(player_state_maybe)) {
+        var player_state = fromJust(player_state_maybe);
+        var player_state_p = compute_player_position(player_state: PlayerState, cursor_xy);
+        var players = update_players(player_id, player_state_p, state_new.players);
+
+        (screen=state_new.screen, 
+         players=players,
+         food=state_new.food): GameState
+    } else
+        state
+}
+
+### EVENT LISTENERS
+fun on_mousemove(e) {
+    var cursor = (getPageX(e), getPageY(e));
+    store_int("cursor_x", cursor.1);
+    store_int("cursor_y", cursor.2);
+}
+
+####
+var game_access_point = new();
+var client_access_point = new();
+
+fun playing(game_state) {
+    var (s: (Game)) = accept(game_access_point);
+    <| offer s {
+        case Move -> {
+            var (player_id, s) = receive(s);
+            var (input, s) = receive(s);
+            var game_state_new = update_logic(game_state, player_id, input);
+            var in_game = if (isJust(lsDictLookup(player_id, game_state.players))) true else false;
+            ignore(send(game_state_new, (send(true, s))));
+            playing(game_state_new)
+        }
+        case AddPlayer -> {
+            var (player_id, s) = receive(s);
+            var (player_name, s) = receive(s);
+            var new_player_state = (name=player_name, x=500.0, y=500.0, 
+                                    mass=20, colour=random_colour_player(0.95, 0.7)): PlayerState;
+            var game_state_new = (screen=game_state.screen, food=game_state.food,
+                                  players=lsDictAdd(player_id, new_player_state, game_state.players));
+            ignore(send(game_state_new, s));
+            playing(game_state_new)
+        }
+    } |>
+}
+
+sig get_initial_game_state: ((~InitiateGame), String) ~> GameState
+fun get_initial_game_state(s, name) {
+    <| Start s.s[name].s(state).{state} |>
+}
+
+fun initialize(player_name) client { 
+    replaceNode(<div id="container" tabindex="1"> 
+                    <canvas id="{canvas1}" height="{intToString(screenHeight)}" width="{intToString(screenWidth)}"/>
+                    <canvas id="{canvas2}" height="{intToString(screenHeight)}" width="{intToString(screenWidth)}"/> 
+                </div>,
+                getNodeById("container"));
+    
+    var game_state_i = get_initial_game_state(knife(initial_game_state), player_name);
+    var _ = spawn { playing(game_state_i)};
+
+    fun on_key_down(e) {
+        if (getCharCode(e) == 81) {  #that's Q
+            var _ = spawn {
+                var (c: (~Client)) = request(client_access_point);
+                fun other_play(player_id, game_state: GameState, in_game: Bool) {
+                    if (in_game) {
+                        var (cp: (~Game)) = request(game_access_point);
+                        <| Move cp.cp[player_id].
+                                   cp[ Cursor(floatToInt(intToFloat(screenWidth) *. random()), 
+                                              floatToInt(intToFloat(screenHeight) *. random())): Input].
+                                   cp(in_game).cp(new_game_state).{ (other_play(player_id, new_game_state, in_game)) } |>
+                    } else
+                        other_play(player_id, game_state, in_game)
+                }
+                <| NewPlayer c.c["bot"].c(player_id).c(game_state).{ ignore(spawn{(other_play(player_id, game_state, true))}) } |>
+            };
+            ()
+        } else ()
+    }
+
+    jsSetOnEvent(getNodeById("container"), "mousemove", on_mousemove, true);
+    jsSetOnKeyDown(getNodeById("container"), on_key_down);
+
+    var _ = spawn {
+        fun play(game_state: GameState, player_count: Int) {
+            var (c: (~Game)) = request(game_access_point);
+            var (s: Client) = accept(client_access_point);
+            <| offer s {
+                case InputMsg -> s(player_id).s(input).{
+                    <| Move c.c[player_id].c[input].
+                              c(in_game).c(new_game_state).{ if(in_game) draw(player_id, new_game_state) else (); 
+                                                                       (play(new_game_state, player_count))} |>
+                }
+                case NewPlayer -> s(name).s[player_count+1].s[game_state].{
+                    <| AddPlayer c.c[player_count+1].c[name].c(new_game_state).{ (play(new_game_state, player_count+1)) } |>
+                }
+            } |>
+        }
+
+        play(game_state_i, 1)
+    };
+    
+    fun master_loop() {
+        var start_time = getTime(event);
+        fun game_loop(prev_time: Int) {
+            var curr_time = getTime(event);
+            if (curr_time - prev_time > 30) {
+                var cursor = 
+                    switch ((get_int("cursor_x"), get_int("cursor_y"))) {
+                        case (Just(x), Just(y)) -> Cursor(x, y)
+                        case (Nothing, Nothing) -> Cursor(gameWidth/2, gameHeight/2)
+                        case (Just(x), Nothing) -> Cursor(x, gameHeight/2)
+                        case (Nothing, Just(y)) -> Cursor(gameWidth/2, y)
+                    };
+                var (c: (~Client)) = request(client_access_point);
+                <| InputMsg c.c[1].c[cursor].{game_loop(curr_time)} |>
+            } else {
+                game_loop(prev_time)
+            }
+        }
+        game_loop(start_time)
+    }
+
+    var _ = spawn { master_loop() };
+    ()
+}
+
+fun main() {
+
+    page
+        <html>
+            <head>
+                <title>Agar.io</title>
+                <style>
+                    body {{
+                        margin: 0;
+                    }}
+                    #{stringToXml(canvas1)} {{
+                        display: none;
+                        position: absolute;
+                        top: 0px;
+                        left: 0px;
+                    }}
+                    #{stringToXml(canvas2)} {{
+                        display: block;
+                        position: absolute;
+                        top: 0px;
+                        left: 0px;
+                    }}
+                    #{stringToXml("container")} {{
+                        position: relative;
+                        width: {stringToXml(intToString(screenWidth))}px;
+                        height: {stringToXml(intToString(screenHeight))}px;
+                    }}
+                    #name_form {{
+                        position: relative;
+                        left: {stringToXml(intToString(screenWidth/2))}px;
+                        top: {stringToXml(intToString(screenHeight/2))}px;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div id="container">
+                    <div id="name_form">
+                        Agar.io
+                        <form l:onsubmit="{initialize(player_name)}">
+                            <input type="text" l:name="player_name" autofocus="autofocus"/>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="{state_node_id}" style="display:none;" ></div>
+
+            </body>
+        </html>
+}
+
+main()
