@@ -1,0 +1,130 @@
+var db = database "surveybuilder";
+
+var readysurveys =
+    table "surveys"
+    with (id : Int,
+	  name : String,
+	  textareasno : Int
+    	  ) from db;
+
+var surveyrespondents =
+	table "surveyrespondents"
+	with (
+	id : Int,
+	surveyid : Int,
+	name : String
+	) from db;
+
+fun getSurvey(surveyselected)
+{
+	
+	if (length(surveyselected) > 0){
+	var selectedsurveyname = hd(surveyselected);
+	for (s <-- readysurveys)
+  	where (s.name == selectedsurveyname)
+    [("id"=s.id, "name"=s.name, "textareasno"=s.textareasno)]
+    }
+    else
+    {
+    []
+    }
+}
+
+fun generateSurveyEditLink(surveyName, respondentName)
+{
+	var link = "survey-edit.links?surveyName="^^surveyName^^"&respondentName="^^respondentName;
+	link
+}
+
+fun main() {
+
+var env = environment();
+var srvopt = for ((x,y) <- env) where (x == "surveyName") [y]; 
+var srvnLst = getSurvey(srvopt);
+var selectedsrv = if (length(srvnLst) > 0)
+ {
+ 	hd(srvnLst)
+ }
+ else
+ {
+ 	("id"=0, "name"="takiegoimienianiktnienada", "textareasno"=0)
+ }; 
+
+
+if (selectedsrv.id <> 0)
+{
+
+page
+<html> 
+ <title>SurveyBuilder</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>{stringToXml(selectedsrv.name)}</h1>
+
+<p>To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
+
+<p>Below there is a list of people who have completed the survey until now. Because it is probable that some of them could have changed their minds in some issues taken up in the survey you can send them the link to their responses so that they can edit their answers. To generate such a link you should click on the 'edit responses' which is placed next to each respondent nickname.</p>
+
+<h3>survey respondents table</h3>
+
+<table border="1">
+
+<tr border="1">
+<td border="1">Respondent name </td><td>Edit link </td>
+</tr>
+
+
+
+{
+for (rrespondent <- query 
+
+	{
+	for (rrespondent <-- surveyrespondents) 
+	where (rrespondent.surveyid == selectedsrv.id)
+	[rrespondent]
+	}
+	)
+		{
+		<tr border="1">
+		<td border="1">{stringToXml(rrespondent.name)}</td>
+		<td border="1"><a href="{generateSurveyEditLink(selectedsrv.name,rrespondent.name)}">click here to edit responses</a></td>
+		</tr>
+		}
+        
+}
+
+
+
+
+</table>
+
+
+<p>To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
+
+
+</body>				  
+</html>
+
+}
+else
+{
+	
+page
+<html> 
+ <title>SurveyBuilder</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>respondents management tool</h1>
+
+
+
+<p>Sorry, but there is no survey with the name you have given. To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
+
+
+</body>				  
+</html>
+
+}
+}
+
+main()

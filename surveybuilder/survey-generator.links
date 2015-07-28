@@ -1,0 +1,172 @@
+var db = database "surveybuilder";
+
+var surveys =
+    table "surveys"
+    with (
+	  name : String,
+	  textareasno : Int
+    	  ) from db;
+
+var readysurveys =
+    table "surveys"
+    with (id : Int,
+	  name : String,
+	  textareasno : Int
+    	  ) from db;
+
+var textareas =
+    table "textareas"
+    with (
+	  surveyid : Int,
+	  questioncontent : String
+    	  ) from db;
+
+var tmpquestions = table "tmpquestions" with (name : String) from db;
+
+var nameform = formlet 
+               <#>
+               	<p>After you have done adding new questions, please give this survey an unique name, so that it might be recognizable among other surveys</p>
+	         	<p><b>Your survey name:</b> {input -> surveyname}</p>
+	         	<p>To proceed to the next step of survey creation please click on 'next' button.</p>
+				{submitButton("next") -> submit} 
+               </#> 
+               yields {(surveyname=surveyname)};
+
+fun add(name) {
+ insert tmpquestions values [(name=name)];
+ main()
+}
+
+fun remove(name) {
+ delete (r <-- tmpquestions) where (r.name == name);
+ main()
+}
+
+fun summarizesurvey(surveyname)
+{
+	var surveyform = formlet
+					<#>
+					<p>Upon information you entered on the previous page your survey will be like:</p>
+					<p><b>survey name</b> - <em>{stringToXml(surveyname.surveyname)}</em></p>
+					<p><b>published questions:</b></p>
+					<table>
+     				 {for (tmpquestion <- query {for (tmpquestion <-- tmpquestions) [tmpquestion]})
+        			  <tr><td><em>{stringToXml(tmpquestion.name)}</em></td></tr>}
+     				</table>
+					<br />
+					<p>If you really want to generate this survey click on the button below or go back to revise the survey content.</p>
+					{submitButton("generate survey") -> submit} 
+					</#>
+					yields {surveyname};
+
+page
+<html> 
+ <title>SurveyGenerator</title>
+
+ <body bgcolor="#ffffff">
+      
+<h2>Survey preview</h2>
+
+{
+	( surveyform ) => finalpage
+}
+
+</body>				  
+</html>
+
+}
+
+fun insertsinglerow(r)
+{
+	insert textareas
+	values [(surveyid=r.surveyid, questioncontent=r.questioncontent)];
+	()
+}
+
+fun deleteTemporalEntry(r)
+{
+ 	delete (x <-- tmpquestions) where (x.name == r.questioncontent);
+	()
+}
+
+fun finalpage(nameofsurvey)
+{
+
+	# insert the information about the created survey to the 'surveys' table
+	var questslist = asList(tmpquestions);
+	var questsno = length(questslist);
+	insert surveys
+  	values [(name=nameofsurvey.surveyname,
+	   textareasno=questsno
+	   )];
+	# insert the questions to the 'textareas' table
+	var rdsurveys = asList(readysurveys);
+	# wyciagamy ostatnie
+	var rvrsdsurveys = reverse(rdsurveys);
+	var lastsurvey = hd(rvrsdsurveys);
+	# wyciagamy id z tego ostatnio stworzonego
+	var survid = lastsurvey.id;
+	var unodos = for (survque <- questslist)
+	{
+	[(surveyid=survid, questioncontent=survque.name)]
+	};
+	# don't know way but there must be this var...
+	var magicvariable = for (r <- unodos) 
+	{
+	insertsinglerow(r);
+	# delete the table '', which contains temporal questions for only this survey
+	deleteTemporalEntry(r);
+	[(costam = r.surveyid)]
+	};
+
+page
+<html> 
+ <title>SurveyGenerator</title>
+
+ <body bgcolor="#ffffff">
+      
+<p>Your survey has been created. Thank you for using SurveyGenerator. To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
+
+</body>				  
+</html>
+
+}
+
+fun main() {
+
+page
+<html> 
+ <title>SurveyGenerator</title>
+
+ <body bgcolor="#ffffff">    
+ <h1>Welcome to SurveyGenerator module !</h1>
+
+
+ 	<p>Please write below which questions you want to have on your survey and then click 'add question' button to add this question to the survey.</p>
+    <form l:action="{add(tmpquestion)}" method="POST">
+      <input l:name="tmpquestion"/>
+      <button type="submit">add question</button>
+    </form>
+    <p>Below there are questions you want to have on your survey:</p>
+    
+    <table>
+     {for (tmpquestion <- query {for (tmpquestion <-- tmpquestions) [tmpquestion]})
+        <tr><td>{stringToXml(tmpquestion.name)}</td>
+            <td><form l:action="{remove(tmpquestion.name)}" method="POST">
+                 <button type="submit">remove this question</button>
+                </form>
+            </td>
+        </tr>}
+     </table>
+   	<p>If you change your mind and would like to remove a question from the survey then click a proper button next to the question.</p>
+   	{
+   		( nameform ) => summarizesurvey
+   	}
+
+
+</body>				  
+</html>
+
+}
+
+main()

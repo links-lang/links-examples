@@ -1,0 +1,140 @@
+var db = database "surveybuilder";
+
+var readysurveys =
+    table "surveys"
+    with (id : Int,
+	  name : String,
+	  textareasno : Int
+    	  ) from db;
+
+var questions =
+	table "textareas"
+    with (
+      id : Int,
+	  surveyid : Int,
+	  questioncontent : String
+    	  ) from db;
+
+var answers =
+	table "textareaentries"
+	with
+	(
+	id : Int,
+	textareaid : Int,
+	respondendid : Int,
+	answer : String
+	) from db;
+
+sig showResult : (String,[String]) ~> Xml
+fun showResult(msg,r) {
+<#>
+  <tr><td width="500"><b>{stringToXml(msg)}</b></td></tr>
+  <tr><td><ul>{for (x <- r) where (x <> "") <li>{stringToXml(x)}</li>}</ul></td></tr>
+</#>
+}
+
+fun getQuestions(surveyId)
+{
+	query { 
+	for (rquestion <-- questions) where (rquestion.surveyid == surveyId) 
+	[rquestion] 
+	}
+}
+
+fun getAnswers(questionId)
+{
+	for (tmpanswer <- query { 
+	for (ranswer <-- answers) where (ranswer.textareaid == questionId) 
+	[ranswer] 
+	})
+	{
+	[tmpanswer.answer]
+	}
+}
+
+fun getSurvey(surveyselected)
+{
+	
+	if (length(surveyselected) > 0){
+	var selectedsurveyname = hd(surveyselected);
+	for (s <-- readysurveys)
+  	where (s.name == selectedsurveyname)
+    [("id"=s.id, "name"=s.name, "textareasno"=s.textareasno)]
+    }
+    else
+    {
+    []
+    }
+}
+
+fun main() {
+
+var env = environment();
+var srvopt = for ((x,y) <- env) where (x == "surveyName") [y]; 
+var srvnLst = getSurvey(srvopt);
+var selectedsrv = if (length(srvnLst) > 0)
+ {
+ 	hd(srvnLst)
+ }
+ else
+ {
+ 	("id"=0, "name"="takiegoimienianiktnienada", "textareasno"=0)
+ }; 
+
+
+
+if (selectedsrv.id == 0)
+{
+
+page
+<html> 
+ <title>SurveyResultsAnalyzer</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>Welcome to the survey results analyzer module of the SurveyBuilder application !</h1>
+
+<p>To see the results of the survey you have to provide a proper survey name as an HTML parameter. To do that you should have in your URL something like that: "survey-results.links?surveyName=<em>yourSurveyName</em>".</p>
+<p>To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
+ 
+   
+</body>				  
+</html>
+
+}
+else
+{
+
+page
+<html> 
+ <title>SurveyResultsAnalyzer</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>{stringToXml(selectedsrv.name)}</h1>
+
+   <p>This is an anonymized summary of the results (to date).</p>
+
+<table border="2">
+{
+	var qstns = getQuestions(selectedsrv.id);
+	if(length(qstns) > 0)
+	{
+	for (singlequestion <- qstns) {
+	showResult(singlequestion.questioncontent,getAnswers(singlequestion.id))
+	}
+	}
+	else
+	{
+	<p><b>This is an empty survey without the questions.</b></p>
+	}
+}
+</table>
+
+<p>To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
+
+</body>				  
+</html>
+
+}
+}
+
+main()

@@ -1,0 +1,235 @@
+var db = database "surveybuilder";
+
+var readysurveys =
+    table "surveys"
+    with (id : Int,
+	  name : String,
+	  textareasno : Int
+    	  ) from db;
+
+var textareas =
+    table "textareas"
+    with (
+      id : Int,
+	  surveyid : Int,
+	  questioncontent : String
+    	  ) from db;
+
+var textareaentries =
+	table "textareaentries"
+	with
+	(
+	id : Int,
+	textareaid : Int,
+	respondendid : Int,
+	answer : String
+	) from db;
+
+var readyrespondents =
+	table "surveyrespondents"
+	with
+	(
+	id : Int,
+	surveyid : Int,
+	name : String
+	) from db;
+
+fun editSummarize(inputData, surveyId, surveyName, respondentId)
+{
+
+var editFormlet = formlet 
+				<#>
+        			{
+         			for(entry <- inputData.listofvalues)
+         			{
+         			<p><b>{stringToXml(entry.question)}</b><br></br><em>{stringToXml(entry.answer)}</em></p>
+         			}
+         			}
+         			<p>If they are in line with your opinion please submit them by clicking on 'confirm' button. Otherwise go back.</p>
+         			<p>{submitButton("confirm") -> submit}</p> 
+               	</#> 
+        yields { 
+        (id = surveyId , data = inputData)
+        };
+
+page
+<html> 
+ <title>SurveyFiller</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>{stringToXml(surveyName)}</h1>
+ 
+<p>That is how do your answers look like now:</p>
+
+ {
+ 	editFormlet => fun (par) { confirmEdit(par, surveyName, respondentId) }
+ }
+
+
+ <hr />
+   
+</body>				  
+</html>
+}
+
+fun updatesinglerowTA(r, respondentId)
+{
+	update (x <-- textareaentries)
+	where (x.textareaid == r.id && x.respondendid == respondentId)
+	set (
+	 answer = r.answer
+	);
+	()
+}
+
+fun confirmEdit(inputValues, sName, respondentId)
+{
+
+#update
+var data = inputValues.data.listofvalues;
+var someMagic = for(r <- data)
+{
+	updatesinglerowTA(r, respondentId);
+	[]
+};
+
+page
+<html> 
+ <title>SurveyFiller</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>{stringToXml(sName)}</h1>
+ 
+ <p>Your answers have been successfully updated in our database !</p>
+
+ <br></br>
+ <img src="success.jpg" alt="" width="620" height="349"></img>
+ 
+   
+</body>				  
+</html>
+
+}
+
+fun surveyFormlet(questions, answers)
+{
+	if (questions == [])
+        formlet <#>
+        			<tr class="blank_row"><td colspan="5"></td></tr>
+        			<tr class="blank_row"><td colspan="5"></td></tr>  			
+        			<tr><td></td></tr>
+         			<tr><td>{submitButton("Next") -> submit}</td></tr> 
+                </#> 
+        yields { 
+        (listofvalues = [])
+        }
+	else {
+		formlet <#>
+                 <tr>
+                     <td> <b> {stringToXml(hd(questions).questioncontent)} </b> </td>
+                 </tr>
+                 <tr>
+                 	<td> {textarea(hd(answers).answer) -> lanswer} </td>
+                 </tr>
+                 { surveyFormlet(tl(questions), tl(answers)) -> rest }      
+             </#>
+    	yields
+    	(listofvalues = (id = hd(questions).id, answer = lanswer, question = hd(questions).questioncontent)::rest.listofvalues)	
+}
+}
+
+fun getSurvey(surveyselected)
+{
+	if (length(surveyselected) > 0){
+	var selectedsurveyname = hd(surveyselected);
+	for (s <-- readysurveys)
+  	where (s.name == selectedsurveyname)
+    [("id"=s.id, "name"=s.name, "textareasno"=s.textareasno)]
+    }
+    else
+    {
+    []
+    }
+}
+
+fun getRespondent(respondentselected, selsurveyId)
+{
+	if (length(respondentselected) > 0)
+	{
+	var selectedrespondentname = hd(respondentselected);
+	for (r <-- readyrespondents)
+  	where (r.name == selectedrespondentname && r.surveyid == selsurveyId)
+    [("id"=r.id, "surveyid"=r.surveyid, "name"=r.name)]
+	}
+	else
+	{
+	[]
+	}
+}
+
+fun main() {
+
+var env = environment();
+var srvopt = for ((x,y) <- env) where (x == "surveyName") [y];
+var rspndntopt = for ((x,y) <- env) where (x == "respondentName") [y];
+var srvnLst = getSurvey(srvopt);
+var selectedsrv = if (length(srvnLst) > 0)
+ {
+ 	hd(srvnLst)
+ }
+ else
+ {
+ 	("id"=0, "name"="takiegoimienianiktnienada", "textareasno"=0)
+ }; 
+var rspndntLst = getRespondent(rspndntopt,selectedsrv.id);
+var selectedrspndnt = if (length(rspndntLst) > 0)
+{
+	hd(rspndntLst)
+}
+else
+{
+	("id"=0, "surveyid"=0, "name"="atakiegotojuznapewnonikt")
+};
+
+if (selectedrspndnt.id <> 0)
+{
+var surveyquestions = query { for (rquestion <-- textareas) where (rquestion.surveyid == selectedsrv.id) [rquestion] };
+var surveyanswers = query { for (ranswer <-- textareaentries) where (ranswer.respondendid == selectedrspndnt.id) [ranswer] };
+
+var ep = page <table> { ( surveyFormlet(surveyquestions, surveyanswers) ) => fun (r) {editSummarize(r,selectedsrv.id,selectedsrv.name,selectedrspndnt.id)} } </table>;
+
+page
+<html> 
+ <title>SingleSurveyEditor</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>{stringToXml(selectedsrv.name)}</h1>
+  <p>Below there is placed a form of the survey so that you can improve your answers. We are glad of your engagement.</p>
+
+{|ep|}
+
+<hr />
+
+</body>				  
+</html>
+
+}
+else
+{
+	
+page
+<html> 
+ <title>SingleSurveyEditor</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>Welcome to the single survey editor of the SurveyBuilder application !</h1>
+ <p>Please provide a proper both survey name and respondent name as an HTML parameters. To do that you should have in your URL something like that: "survey-edit.links?surveyName=<em>yourSurveyName</em>&amp;respondentName=<em>yourRespondentName</em>".</p>
+ <p> If you don't know what I'm talking about, then you haven't been asked to edit this survey.</p>
+   
+</body>				  
+</html>
+
+}
+}
+
+main()

@@ -1,0 +1,241 @@
+# we assume that in every survey respondent should give his name
+
+var db = database "surveybuilder";
+
+var readysurveys =
+    table "surveys"
+    with (id : Int,
+	  name : String,
+	  textareasno : Int
+    	  ) from db;
+
+var textareas =
+    table "textareas"
+    with (
+      id : Int,
+	  surveyid : Int,
+	  questioncontent : String
+    	  ) from db;
+
+var respondents =
+	table "surveyrespondents"
+	with (
+	surveyid : Int,
+	name : String
+	) from db;
+
+var readyrespondents = 
+	table "surveyrespondents"
+	with (
+	id : Int,
+	surveyid : Int,
+	name : String
+	) from db;
+
+var textareaentries =
+	table "textareaentries"
+	with (
+	textareaid : Int,
+	respondendid : Int,
+	answer : String
+	) from db;
+
+fun insertsinglerowTA(r,rid)
+{
+	insert textareaentries
+	values [(textareaid=r.id, respondendid=rid, answer=r.answer)];
+	()
+}
+
+fun finalStep(inputValues, sName)
+{
+
+#creation of a new respondent in DB
+insert respondents
+values [(surveyid=inputValues.id,
+	   name=inputValues.data.name
+	   )];
+#process of addition of entries for a new respondent in DB
+var rdrspndnts = asList(readyrespondents);
+var reversedrdrspndnts = reverse(rdrspndnts);
+var lastone = hd(reversedrdrspndnts);
+var respondentid = lastone.id;
+var data = inputValues.data.listofvalues;
+var someMagic = for(r <- data)
+{
+	insertsinglerowTA(r,respondentid);
+	[]
+};
+
+
+page
+<html> 
+ <title>SurveyFiller</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>{stringToXml(sName)}</h1>
+ 
+ <p>Your answers have been successfully stored in our database ! We would like to thank you once more for your time and effort which involved filling out this survey !</p>
+
+ <br></br><br></br>
+ 
+ <img src="bugswavinggloveless.png" alt="" width="250" height="250"></img>
+ 
+   
+</body>				  
+</html>
+}
+
+fun surveySummarize(inputData, surveyId, surveyName)
+{
+
+var finalFormlet = formlet 
+				<#>
+        			{
+         			for(entry <- inputData.listofvalues)
+         			{
+         			<p><b>{stringToXml(entry.question)}</b><br></br><em>{stringToXml(entry.answer)}</em></p>
+         			}
+         			}
+         			<p>If they are correct please submit them by clicking on 'confirm' button. Otherwise go back.</p>
+         			<p>{submitButton("confirm") -> submit}</p> 
+               	</#> 
+        yields { 
+        (id = surveyId , data = inputData)
+        };
+
+page
+<html> 
+ <title>SurveyFiller</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>{stringToXml(surveyName)}</h1>
+ 
+ <p>Dear <b>{stringToXml(inputData.name)}</b>, thank you for completing this survey. Please revise your answers: </p>
+ 
+ {
+ 	finalFormlet => fun (par) { finalStep(par, surveyName) }
+ }
+
+ <hr />
+   
+</body>				  
+</html>
+}
+
+fun surveyFormlet(questions)
+{
+	if (questions == [])
+        formlet <#>
+        			<tr class="blank_row"><td colspan="5"></td></tr>
+        			<tr class="blank_row"><td colspan="5"></td></tr>  			
+        			<tr><td><b>Your name:</b> {input -> iname}</td></tr>
+        			<tr class="blank_row"><td colspan="5"></td></tr>  			
+        			<tr class="blank_row"><td colspan="5"></td></tr>
+        			<tr><td></td></tr>
+         			<tr><td>{submitButton("Next") -> submit}</td></tr> 
+                </#> 
+        yields { 
+        (name = iname, listofvalues = [])
+        }
+	else {
+		formlet <#>
+                 <tr>
+                     <td> <b> {stringToXml(hd(questions).questioncontent)} </b> </td>
+                 </tr>
+                 <tr>
+                 	<td> {textarea("") -> lanswer} </td>
+                 </tr>
+                 { surveyFormlet(tl(questions)) -> rest }      
+             </#>
+    	yields
+    	(name = rest.name, listofvalues = (id = hd(questions).id, answer = lanswer, question = hd(questions).questioncontent)::rest.listofvalues)	
+}
+}
+
+fun getSurvey(surveyselected)
+{
+	
+	# I want a tuple all survey data
+	if (length(surveyselected) > 0){
+	var selectedsurveyname = hd(surveyselected);
+	for (s <-- readysurveys)
+  	where (s.name == selectedsurveyname)
+    [("id"=s.id, "name"=s.name, "textareasno"=s.textareasno)]
+    }
+    else
+    {
+    []
+    }
+}
+
+fun main() {
+
+ var env = environment();
+ var srvopt = for ((x,y) <- env) where (x == "surveyName") [y]; 
+ var srvnLst = getSurvey(srvopt);
+ var selectedsrv = if (length(srvnLst) > 0)
+ {
+ 	hd(srvnLst)
+ }
+ else
+ {
+ 	("id"=0, "name"="takiegoimienianiktnienada", "textareasno"=0)
+ }; 
+
+var surveyquestions = query { for (rquestion <-- textareas) where (rquestion.surveyid == selectedsrv.id) [rquestion] };
+
+var p = page <table> { ( surveyFormlet(surveyquestions) ) => fun (r) {surveySummarize(r,selectedsrv.id,selectedsrv.name)} } </table>;
+
+
+#tutaj wrzucic ifa ktory sprawdzi ID surveya i tyle
+
+if (selectedsrv.id == 0)
+{
+
+page
+<html> 
+ <title>SurveyFiller</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>SurveyFiller</h1>
+
+ <p>Please provide a proper survey name as an HTML parameter. To do that you should have in your URL something like that: "survey-filler.links?surveyName=<em>yourSurveyName</em>".</p>
+ <p> If you don't know what I'm talking about, then you haven't been invited to participate in this survey.</p>
+
+
+</body>				  
+</html>
+
+}
+else
+{
+
+page
+<html> 
+ <title>SurveyFiller</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>{stringToXml(selectedsrv.name)}</h1>
+
+ <p><i>Please complete this short survey.</i></p>
+ <p><i>It shouldn't take you more thank</i> X <i>minutes.</i></p>
+
+{|p|}
+
+<hr />
+
+ <p> <u>THINK OF ADDING TIME ESTIMATION AS A PROPERTY OF A SURVEY IN THE NEXT SPRINT !!</u></p>
+ <p> <u>THINK OF ADDING OWNER-DEFINED WORDS TO ENCOURAGE PEOPLE TO FILL OUT THE SURVEY AS A PROPERTY OF A SURVEY IN THE NEXT SPRINT !!</u></p>
+ <p> <u>THINK OF ADDING OWNER-DEFINED WORDS TO THANK PEOPLE FOR FILLING OUT THE SURVEY AS A PROPERTY OF A SURVEY IN THE NEXT SPRINT !!</u></p>
+
+</body>				  
+</html>
+
+}
+
+
+
+}
+
+main()

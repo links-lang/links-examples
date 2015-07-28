@@ -1,0 +1,115 @@
+var db = database "surveybuilder";
+
+var surveys =
+    table "surveys"
+    with (
+      id : Int,
+	  name : String,
+	  textareasno : Int
+    	  ) from db;
+
+var surveyrespondents =
+	table "surveyrespondents"
+	with (
+	id : Int,
+	surveyid : Int,
+	name : String
+	) from db;
+
+fun getNumberOfRespondents(surveyId)
+{
+	var respondents = for (x <- asList(surveyrespondents))
+	where (x.surveyid == surveyId)
+	[x];
+	var result = length(respondents);
+	result
+}
+
+fun generateSurveyResultsAnalyzerLink(surveyName)
+{
+	var link = "survey-results.links?surveyName="^^surveyName;
+	link
+}
+
+fun generateSurveyFillerLink(surveyName)
+{
+	var link = "survey-filler.links?surveyName="^^surveyName;
+	link
+}
+
+fun generateSurveyDestroyerLink(surveyName)
+{
+	var link = "surveydestroyer.links?surveyName="^^surveyName;
+	link
+}
+
+fun generateSurveyRespondentsLink(surveyName)
+{
+	var link = "survey-respondents.links?surveyName="^^surveyName;
+	link
+}
+
+fun main() {
+
+page
+<html> 
+ <title>SurveyBuilder</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>SurveyBuilder</h1>
+
+<p>Welcome to the <b>SurveyBuilder</b> application! This small survey management system consists of 4 modules which will help you to cope with your surveys.</p>
+<p>The modules include:
+<ul>
+<li>SurveyGenerator - maybe some description here ?</li>
+<li>SurveyFiller - maybe some description here ?</li>
+<li>SurveyResultsAnalizer - maybe some description here ?</li>
+<li>SingleSurveyEditor - maybe some description here ?</li>
+</ul>
+
+</p>
+
+<p>To create a new survey go to the <a href="survey-generator.links">SurveyGenerator</a> module !</p>
+<p>By the time you have created following surveys: </p>
+
+<table border="1">
+
+<tr border="1">
+<td border="1"><b>Survey name</b></td>
+<td border="1"><b>Number of Respondents</b></td>
+<td border="1"><b>Results</b></td>
+<td border="1"><b>SurveyFiller module</b></td>
+<td border="1"><b>Delete option</b></td>
+</tr>
+
+{
+for (rsurvey <- query 
+	{
+	for (rsurvey <-- surveys) 
+	[rsurvey]
+	}
+	)
+		{
+		<tr border="1">
+		<td border="1"><a href="{generateSurveyRespondentsLink(rsurvey.name)}">{stringToXml(rsurvey.name)}</a></td>
+		<td border="1">{intToXml(getNumberOfRespondents(rsurvey.id))}</td>
+		<td border="1"><a href="{generateSurveyResultsAnalyzerLink(rsurvey.name)}">click here to see</a></td>
+		<td border="1"><a href="{generateSurveyFillerLink(rsurvey.name)}">click here to go</a></td>
+		<td border="1"><a href="{generateSurveyDestroyerLink(rsurvey.name)}">click here to remove</a></td>
+		</tr>
+		}
+        
+}
+
+</table>
+
+<br></br>
+<hr /> 
+<em>Powered by <a href="http://groups.inf.ed.ac.uk/links/">Links</a>.</em>   
+
+</body>				  
+</html>
+
+}
+
+main()
