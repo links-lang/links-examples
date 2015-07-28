@@ -3,5 +3,5 @@ The SurveyBuilder application is a survey management system (similar to SurveyMo
 - "SurveyGenerator". Module where the new surveys are emerging.
 - "SurveyFiller". Module sent to potential respondents where they fill out the surveys.
 - "SurveyResultsAnalizer". Module displaying all the answers the respondents gave to the questions contained in a surveys.
-- "SingleSurveyEditor". Module sent to the respondent who wants to edit the answers he/she already gave.
+- "SingleSurveyEditor". Module sent to the respondent who wants to edit the answers he/she has already given.
 The application has been developed by Piotr Hajduk during the summer internship in 2015 at the University of Edinburgh. The project has been supervised by: James Cheney, Sam Lindley and Garrett Morris.
