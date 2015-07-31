@@ -407,7 +407,7 @@ fun draw(player_id, state: GameState) {
         jsFillText(ctx, "Game over!", 230.0, 220.0);
     } else ();
 
-    draw_circle(x_offset, y_offset, 2.0, 1.0, "black", "black", 1.0);
+
     ()
 }
 
