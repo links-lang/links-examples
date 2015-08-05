@@ -33,6 +33,31 @@ var answers =
 	answer : String
 	) from db;
 
+var readycheckboxquestions = 
+    table "checkboxquestions"
+    with (
+    id : Int,
+    surveyid : Int,
+    checkboxcontent : String
+    ) from db;
+
+var readycheckboxoptions = 
+    table "checkboxoptions"
+    with (
+    id : Int,
+    questionid : Int,
+    optioncontent : String
+    ) from db;
+
+var readycheckboxdbentries =
+    table "checkboxentries"
+    with (
+    id : Int,
+    optionid : Int,
+    respondendid : Int,
+    optionvalue : Int
+    ) from db;
+
 fun getSurvey(surveyselected)
 {
 	
@@ -74,6 +99,36 @@ fun removeTextAreas(surveyId)
 	()
 }
 
+fun deleteCheckBoxesEntry(questionId)
+{
+	var amg = for (r <- query {for (r <-- readycheckboxoptions) where (r.questionid == questionId) [r] })
+	{
+			delete (z <-- readycheckboxdbentries) where (z.optionid == r.id);
+			[] 
+	};
+	()
+}
+
+fun removeCheckBoxes(surveyId)
+{
+	var itisgonnabehard = for ( x <- query
+	{
+	for (x <-- readycheckboxquestions) where (x.surveyid == surveyId) [x]
+	})
+	{
+		#x.id przekazemy do funkcji
+		deleteCheckBoxesEntry(x.id);
+		delete (y <-- readycheckboxoptions) where (y.questionid == x.id); 
+		[]
+	};
+	delete (p <-- readycheckboxquestions) where (p.surveyid == surveyId); 
+	#readycheckboxquestions
+	#readycheckboxoptions questionid
+	#readycheckboxdbentries optionid
+
+	()
+}
+
 
 fun main() {
 
@@ -93,12 +148,15 @@ var selectedsrv = if (length(srvnLst) > 0)
 if (selectedsrv.id <> 0)
 {
 
+#remove checkboxes
+removeCheckBoxes(selectedsrv.id);
 #remove textareas and their entries
 removeTextAreas(selectedsrv.id);
 #remove respondents of the survey
 removeRespondents(selectedsrv.id);
 #remove survey itself
 removeSurvey(selectedsrv.id);
+
 
 page
 <html> 

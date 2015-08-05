@@ -34,11 +34,66 @@ var readyrespondents =
 	name : String
 	) from db;
 
+
+var readycheckboxquestions = 
+    table "checkboxquestions"
+    with (
+    id : Int,
+    surveyid : Int,
+    checkboxcontent : String
+    ) from db;
+
+var readycheckboxoptions = 
+    table "checkboxoptions"
+    with (
+    id : Int,
+    questionid : Int,
+    optioncontent : String
+    ) from db;
+
+var readycheckboxdbentries =
+    table "checkboxentries"
+    with (
+    id : Int,
+    optionid : Int,
+    respondendid : Int,
+    optionvalue : Int
+    ) from db;
+
+var checkboxdbentries =
+    table "checkboxentries"
+    with (
+    optionid : Int,
+    respondendid : Int,
+    optionvalue : Int
+    ) from db;
+
 fun editSummarize(inputData, surveyId, surveyName, respondentId)
 {
 
 var editFormlet = formlet 
 				<#>
+                    {
+                    for(cbentry <- inputData.cbvalues)
+                    {
+                    <p><b>{stringToXml(cbentry.questiontxt)}</b>
+                    <table>
+                    {for(singleOption <- cbentry.answers)
+                    {
+                    if(singleOption.selv)
+                    {
+                    <tr><td><font color="green">{stringToXml(singleOption.otxt)}</font></td></tr>
+                    }
+                    else
+                    {
+                    <tr><td><font color="red">{stringToXml(singleOption.otxt)}</font></td></tr>
+                    }
+                    }
+                    }
+                    </table>
+                    </p>
+                    }
+                    }
         			{
          			for(entry <- inputData.listofvalues)
          			{
@@ -82,6 +137,27 @@ fun updatesinglerowTA(r, respondentId)
 	()
 }
 
+fun updateSingleCbEntry(optionId, respondentIt, checkedornot)
+{
+    var asd = if(checkedornot)
+    {
+    update (x <-- checkboxdbentries)
+    where (x.optionid == optionId && x.respondendid == respondentIt)
+    set (
+     optionvalue = 1
+    )
+    }
+    else
+    {
+    update (x <-- checkboxdbentries)
+    where (x.optionid == optionId && x.respondendid == respondentIt)
+    set (
+     optionvalue = 0
+    )
+    };
+    ()
+}
+
 fun confirmEdit(inputValues, sName, respondentId)
 {
 
@@ -92,6 +168,18 @@ var someMagic = for(r <- data)
 	updatesinglerowTA(r, respondentId);
 	[]
 };
+#update checkboxow
+var cbdata = inputValues.data.cbvalues;
+var nameforfor = for (singleQuestion <- cbdata)
+{
+    for (singleOpt <- singleQuestion.answers)
+    {
+        updateSingleCbEntry(singleOpt.oid,respondentId,singleOpt.selv);
+        []
+    }
+    
+};
+
 
 page
 <html> 
@@ -109,6 +197,82 @@ page
 </body>				  
 </html>
 
+}
+
+fun checkboxesFormlet(cboptions)
+{
+      if (cboptions == [])
+                    formlet <#></#> yields []
+                else {
+                    formlet <#>
+                        <tr>
+                            <td>{ stringToXml(hd(cboptions).qotxt) }</td>
+                            <td> { checkbox -> c } </td>
+                        </tr>
+                        { checkboxesFormlet(tl(cboptions)) -> rest }                    
+                    </#>
+                    yields
+                        ("otxt"=hd(cboptions).qotxt,"oid"=hd(cboptions).qoid,"selv"=c)::rest
+                }
+}
+
+fun surveyFormletCb(opt, questions, answers, checkboxes)
+{
+    if (opt == 1)
+    {   
+        if(checkboxes == [])
+        {
+            formlet <#>
+            { surveyFormletCb(2,questions, answers,[]) -> rest }  
+            </#>
+            yields {
+            rest
+        }
+        }
+        else
+        {
+            formlet <#>
+            <tr><td><b>{stringToXml(hd(checkboxes).qname)}</b></td></tr>
+            <tr class="blank_row"><td colspan="5"></td></tr>
+            { checkboxesFormlet(hd(checkboxes).qo) -> useranswers} 
+            <tr class="blank_row"><td colspan="5"></td></tr>   
+            <tr class="blank_row"><td colspan="5"></td></tr>   
+            <tr class="blank_row"><td colspan="5"></td></tr>   
+            { surveyFormletCb(opt,questions,answers,tl(checkboxes)) -> rest }
+
+            </#>
+            yields {
+            (listofvalues = rest.listofvalues, cbvalues = (questiontxt = hd(checkboxes).qname, answers = useranswers)::rest.cbvalues)
+        }
+        }
+
+    }
+    else
+    {
+        if (questions == [])
+        formlet <#>
+                    <tr class="blank_row"><td colspan="5"></td></tr>
+                    <tr class="blank_row"><td colspan="5"></td></tr>            
+                    <tr><td></td></tr>
+                    <tr><td>{submitButton("Next") -> submit}</td></tr> 
+                </#> 
+        yields { 
+        (listofvalues = [], cbvalues = [])
+        }
+    else {
+        formlet <#>
+                 <tr>
+                     <td> <b> {stringToXml(hd(questions).questioncontent)} </b> </td>
+                 </tr>
+                 <tr>
+                    <td> {textarea(hd(answers).answer) -> lanswer} </td>
+                 </tr>
+                 { surveyFormletCb(opt,tl(questions),tl(answers),checkboxes) -> rest }      
+             </#>
+        yields
+        (listofvalues = (id = hd(questions).id, answer = lanswer, question = hd(questions).questioncontent)::rest.listofvalues, cbvalues = [])   
+        }
+    }
 }
 
 fun surveyFormlet(questions, answers)
@@ -167,6 +331,41 @@ fun getRespondent(respondentselected, selsurveyId)
 	}
 }
 
+fun getCbQuestions(surveyId)
+{
+    for(cbquestion <- asList(readycheckboxquestions))
+    where(cbquestion.surveyid == surveyId)
+    [cbquestion]
+}
+
+fun getOptionsForQuestion(questionId)
+{
+    for(cboption <- asList(readycheckboxoptions))
+    where(cboption.questionid == questionId)
+    [("qoid"=cboption.id, "qotxt"=cboption.optioncontent)]
+}
+
+fun prepareCheckboxes(surveyId)
+{
+    
+    if(surveyId <> 0)
+    {
+    #pobieramy pytania dla danego surveya do zmiennej
+    #potem forem po pytaniach pobieramy odpowiedzi i tworzymy odpowiednia tablice wyjsciowa
+    var cbQuestions = getCbQuestions(surveyId);
+    var outArray = for (singleQuestion <- cbQuestions)
+    {
+    var qo = getOptionsForQuestion(singleQuestion.id);
+    [("qname"=singleQuestion.checkboxcontent,"qo"=qo)]
+    };
+    outArray
+    }
+    else
+    {
+    []
+    }
+}
+
 fun main() {
 
 var env = environment();
@@ -195,8 +394,10 @@ if (selectedrspndnt.id <> 0)
 {
 var surveyquestions = query { for (rquestion <-- textareas) where (rquestion.surveyid == selectedsrv.id) [rquestion] };
 var surveyanswers = query { for (ranswer <-- textareaentries) where (ranswer.respondendid == selectedrspndnt.id) [ranswer] };
+var checkboxes = prepareCheckboxes(selectedsrv.id);
+var startValue = 1;
 
-var ep = page <table> { ( surveyFormlet(surveyquestions, surveyanswers) ) => fun (r) {editSummarize(r,selectedsrv.id,selectedsrv.name,selectedrspndnt.id)} } </table>;
+var ep = page <table> { ( surveyFormletCb(startValue,surveyquestions, surveyanswers, checkboxes) ) => fun (r) {editSummarize(r,selectedsrv.id,selectedsrv.name,selectedrspndnt.id)} } </table>;
 
 page
 <html> 

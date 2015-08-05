@@ -25,6 +25,31 @@ var answers =
 	answer : String
 	) from db;
 
+var cbquestions =
+	table "checkboxquestions"
+    with (
+    id : Int,
+    surveyid : Int,
+    checkboxcontent : String
+    ) from db;
+
+var cbanswers =
+	table "checkboxoptions"
+    with (
+    id : Int,
+    questionid : Int,
+    optioncontent : String
+    ) from db;
+
+var cbentries =
+	table "checkboxentries"
+    with (
+    id : Int,
+    optionid : Int,
+    respondendid : Int,
+    optionvalue : Int
+    ) from db;
+
 sig showResult : (String,[String]) ~> Xml
 fun showResult(msg,r) {
 <#>
@@ -32,6 +57,14 @@ fun showResult(msg,r) {
   <tr><td><ul>{for (x <- r) where (x <> "") <li>{stringToXml(x)}</li>}</ul></td></tr>
 </#>
 }
+
+fun showCbResult(msg,r) {
+<#>
+  <tr><td width="500"><b>{stringToXml(msg)}</b></td></tr>
+  <tr><td><ul>{for (x <- r) where (x.txt <> "") <li>{stringToXml(x.txt)} <font color="blue"> (selected by {intToXml(x.no)} respondents)</font></li>}</ul></td></tr>
+</#>
+}
+
 
 fun getQuestions(surveyId)
 {
@@ -50,6 +83,36 @@ fun getAnswers(questionId)
 	{
 	[tmpanswer.answer]
 	}
+}
+
+fun getCbQuestions(surveyId)
+{
+	query { 
+	for (rquestion <-- cbquestions) where (rquestion.surveyid == surveyId) 
+	[rquestion] 
+	}
+}
+
+fun getCbAnswers(questionId)
+{
+	for (tmpcbanswer <- query { 
+	for (ranswer <-- cbanswers) where (ranswer.questionid == questionId) 
+	[ranswer] 
+	})
+	{
+	[("no" = getCbOptionNumber(tmpcbanswer.id), "txt" = tmpcbanswer.optioncontent)]
+	}
+}
+
+fun getCbOptionNumber(optionId)
+{
+	var entries = query {
+	for (rentry <-- cbentries) where (rentry.optionid == optionId && rentry.optionvalue == 1) 
+	[rentry] 
+	};
+	var numberOfEntries = length(entries);
+	var outString = "jakis tekst"^^" -> selected by "^^intToString(numberOfEntries)^^" respondents";
+	numberOfEntries
 }
 
 fun getSurvey(surveyselected)
@@ -116,15 +179,15 @@ page
 <table border="2">
 {
 	var qstns = getQuestions(selectedsrv.id);
-	if(length(qstns) > 0)
-	{
 	for (singlequestion <- qstns) {
 	showResult(singlequestion.questioncontent,getAnswers(singlequestion.id))
 	}
-	}
-	else
-	{
-	<p><b>This is an empty survey without the questions.</b></p>
+	
+}
+{
+	var cbqstns = getCbQuestions(selectedsrv.id);
+	for (singlecb <- cbqstns) {
+	showCbResult(singlecb.checkboxcontent,getCbAnswers(singlecb.id))
 	}
 }
 </table>

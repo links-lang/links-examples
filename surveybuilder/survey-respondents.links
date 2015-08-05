@@ -36,6 +36,12 @@ fun generateSurveyEditLink(surveyName, respondentName)
 	link
 }
 
+fun generateRespondentRemoveLink(respondentId)
+{
+	var link = "respondentdestroyer.links?respondentId="^^intToString(respondentId);
+	link
+}
+
 fun main() {
 
 var env = environment();
@@ -70,7 +76,7 @@ page
 <table border="1">
 
 <tr border="1">
-<td border="1">Respondent name </td><td>Edit link </td>
+<td border="1">Respondent name </td><td>Edit link </td><td>Remove link </td>
 </tr>
 
 
@@ -88,6 +94,7 @@ for (rrespondent <- query
 		<tr border="1">
 		<td border="1">{stringToXml(rrespondent.name)}</td>
 		<td border="1"><a href="{generateSurveyEditLink(selectedsrv.name,rrespondent.name)}">click here to edit responses</a></td>
+		<td border="1"><a href="{generateRespondentRemoveLink(rrespondent.id)}">click here to remove</a></td>
 		</tr>
 		}
         

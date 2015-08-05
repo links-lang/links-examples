@@ -6,7 +6,10 @@ var readysurveys =
     table "surveys"
     with (id : Int,
 	  name : String,
-	  textareasno : Int
+	  textareasno : Int,
+      redirection : String,
+      welcome : String,
+      timetofill : Int
     	  ) from db;
 
 var textareas =
@@ -40,6 +43,30 @@ var textareaentries =
 	answer : String
 	) from db;
 
+var readycheckboxquestions = 
+    table "checkboxquestions"
+    with (
+    id : Int,
+    surveyid : Int,
+    checkboxcontent : String
+    ) from db;
+
+var readycheckboxoptions = 
+    table "checkboxoptions"
+    with (
+    id : Int,
+    questionid : Int,
+    optioncontent : String
+    ) from db;
+
+var checkboxdbentries =
+    table "checkboxentries"
+    with (
+    optionid : Int,
+    respondendid : Int,
+    optionvalue : Int
+    ) from db;
+
 fun insertsinglerowTA(r,rid)
 {
 	insert textareaentries
@@ -47,7 +74,22 @@ fun insertsinglerowTA(r,rid)
 	()
 }
 
-fun finalStep(inputValues, sName)
+fun insertSingleCbEntry(optionId, respondentIt, checkedornot)
+{
+    var asd = if(checkedornot)
+    {
+    insert checkboxdbentries
+    values [(optionid=optionId, respondendid=respondentIt, optionvalue=1)]
+    }
+    else
+    {
+    insert checkboxdbentries
+    values [(optionid=optionId, respondendid=respondentIt, optionvalue=0)]
+    };
+    ()
+}
+
+fun finalStep(inputValues, sName, goLink)
 {
 
 #creation of a new respondent in DB
@@ -66,7 +108,18 @@ var someMagic = for(r <- data)
 	insertsinglerowTA(r,respondentid);
 	[]
 };
-
+var cbdata = inputValues.data.cbvalues;
+# jedziemy z forem po pytaniach i wstawiamy wewnatrz drugiego fora ktory wstawi poszczegolna odpowiedz
+# respondentid, 
+var nameforfor = for (singleQuestion <- cbdata)
+{
+    for (singleOpt <- singleQuestion.answers)
+    {
+        insertSingleCbEntry(singleOpt.oid,respondentid,singleOpt.selv);
+        []
+    }
+    
+};
 
 page
 <html> 
@@ -76,7 +129,7 @@ page
  <h1>{stringToXml(sName)}</h1>
  
  <p>Your answers have been successfully stored in our database ! We would like to thank you once more for your time and effort which involved filling out this survey !</p>
-
+ <p>The author of this survey recommends you to visit <a href="{goLink}">{stringToXml(goLink)}</a>.</p>
  <br></br><br></br>
  
  <img src="bugswavinggloveless.png" alt="" width="250" height="250"></img>
@@ -86,17 +139,39 @@ page
 </html>
 }
 
-fun surveySummarize(inputData, surveyId, surveyName)
+fun surveySummarize(inputData, surveyId, surveyName, goLink)
 {
 
 var finalFormlet = formlet 
 				<#>
+                    {
+                    for(cbentry <- inputData.cbvalues)
+                    {
+                    <p><b>{stringToXml(cbentry.questiontxt)}</b>
+                    <table>
+                    {for(singleOption <- cbentry.answers)
+                    {
+                    if(singleOption.selv)
+                    {
+                    <tr><td><font color="green">{stringToXml(singleOption.otxt)}</font></td></tr>
+                    }
+                    else
+                    {
+                    <tr><td><font color="red">{stringToXml(singleOption.otxt)}</font></td></tr>
+                    }
+                    }
+                    }
+                    </table>
+                    </p>
+                    }
+                    }
         			{
          			for(entry <- inputData.listofvalues)
          			{
          			<p><b>{stringToXml(entry.question)}</b><br></br><em>{stringToXml(entry.answer)}</em></p>
          			}
          			}
+                    
          			<p>If they are correct please submit them by clicking on 'confirm' button. Otherwise go back.</p>
          			<p>{submitButton("confirm") -> submit}</p> 
                	</#> 
@@ -114,7 +189,7 @@ page
  <p>Dear <b>{stringToXml(inputData.name)}</b>, thank you for completing this survey. Please revise your answers: </p>
  
  {
- 	finalFormlet => fun (par) { finalStep(par, surveyName) }
+ 	finalFormlet => fun (par) { finalStep(par, surveyName, goLink) }
  }
 
  <hr />
@@ -123,9 +198,91 @@ page
 </html>
 }
 
+# musi zwracac pojedyncze odpowiedzi na pytania, rekurencyjnie to wywolujemy
+fun checkboxesFormlet(cboptions)
+{
+      if (cboptions == [])
+                    formlet <#></#> yields []
+                else {
+                    formlet <#>
+                        <tr>
+                            <td> { stringToXml(hd(cboptions).qotxt) } </td>
+                            <td> { checkbox -> c } </td>
+                        </tr>
+                        { checkboxesFormlet(tl(cboptions)) -> rest }                    
+                    </#>
+                    yields
+                        ("otxt"=hd(cboptions).qotxt,"oid"=hd(cboptions).qoid,"selv"=c)::rest
+                }
+}
+
+# checkboxesqo na byc w formie pytanie jako String i opcje jako lista stringow
+fun nSurveyFormlet(copt, textareaquestions, checkboxesqo)
+{
+    if (copt == 1)
+    {   
+        if(checkboxesqo == [])
+        {
+            #tutaj bedziemy przekazywali sterowanie do drugiego czesci ifa, zwiazanej z checkboxami
+            formlet <#>
+            { nSurveyFormlet(2,textareaquestions,[]) -> rest }  
+            </#>
+            yields {
+            rest
+        }
+        }
+        else
+        {
+            formlet <#>
+            <tr><td><b>{stringToXml(hd(checkboxesqo).qname)}</b></td></tr>
+            <tr class="blank_row"><td colspan="5"></td></tr>
+            { checkboxesFormlet(hd(checkboxesqo).qo) -> useranswers} 
+            <tr class="blank_row"><td colspan="5"></td></tr>   
+            <tr class="blank_row"><td colspan="5"></td></tr>   
+            <tr class="blank_row"><td colspan="5"></td></tr>   
+            { nSurveyFormlet(copt,textareaquestions,tl(checkboxesqo)) -> rest }
+
+            </#>
+            yields {
+            (name = rest.name, listofvalues = rest.listofvalues, cbvalues = (questiontxt = hd(checkboxesqo).qname, answers = useranswers)::rest.cbvalues)
+        }
+        }
+
+    }
+    else
+    {
+        if (textareaquestions == [])
+        formlet <#>
+                    <tr class="blank_row"><td colspan="5"></td></tr>
+                    <tr class="blank_row"><td colspan="5"></td></tr>            
+                    <tr><td><b>Your name:</b> {input -> iname}</td></tr>
+                    <tr class="blank_row"><td colspan="5"></td></tr>            
+                    <tr class="blank_row"><td colspan="5"></td></tr>
+                    <tr><td></td></tr>
+                    <tr><td>{submitButton("Next") -> submit}</td></tr> 
+                </#> 
+        yields { 
+        (name = iname, listofvalues = [], cbvalues = [])
+        }
+    else {
+        formlet <#>
+                 <tr>
+                     <td> <b> {stringToXml(hd(textareaquestions).questioncontent)} </b> </td>
+                 </tr>
+                 <tr>
+                    <td> {textarea("") -> lanswer} </td>
+                 </tr>
+                 { nSurveyFormlet(copt,tl(textareaquestions),checkboxesqo) -> rest }      
+             </#>
+        yields
+        (name = rest.name, listofvalues = (id = hd(textareaquestions).id, answer = lanswer, question = hd(textareaquestions).questioncontent)::rest.listofvalues, cbvalues = [])   
+        }
+    }
+}
+
 fun surveyFormlet(questions)
 {
-	if (questions == [])
+	var testvari = if (questions == [])
         formlet <#>
         			<tr class="blank_row"><td colspan="5"></td></tr>
         			<tr class="blank_row"><td colspan="5"></td></tr>  			
@@ -150,7 +307,8 @@ fun surveyFormlet(questions)
              </#>
     	yields
     	(name = rest.name, listofvalues = (id = hd(questions).id, answer = lanswer, question = hd(questions).questioncontent)::rest.listofvalues)	
-}
+};
+testvari
 }
 
 fun getSurvey(surveyselected)
@@ -161,7 +319,43 @@ fun getSurvey(surveyselected)
 	var selectedsurveyname = hd(surveyselected);
 	for (s <-- readysurveys)
   	where (s.name == selectedsurveyname)
-    [("id"=s.id, "name"=s.name, "textareasno"=s.textareasno)]
+    [("id"=s.id, "name"=s.name, "textareasno"=s.textareasno,
+    "redirection"=s.redirection,"welcome"=s.welcome,"timetofill"=s.timetofill)]
+    }
+    else
+    {
+    []
+    }
+}
+
+fun getCbQuestions(surveyId)
+{
+    for(cbquestion <- asList(readycheckboxquestions))
+    where(cbquestion.surveyid == surveyId)
+    [cbquestion]
+}
+
+fun getOptionsForQuestion(questionId)
+{
+    for(cboption <- asList(readycheckboxoptions))
+    where(cboption.questionid == questionId)
+    [("qoid"=cboption.id, "qotxt"=cboption.optioncontent)]
+}
+
+fun prepareCheckboxes(surveyId)
+{
+    
+    if(surveyId <> 0)
+    {
+    #pobieramy pytania dla danego surveya do zmiennej
+    #potem forem po pytaniach pobieramy odpowiedzi i tworzymy odpowiednia tablice wyjsciowa
+    var cbQuestions = getCbQuestions(surveyId);
+    var outArray = for (singleQuestion <- cbQuestions)
+    {
+    var qo = getOptionsForQuestion(singleQuestion.id);
+    [("qname"=singleQuestion.checkboxcontent,"qo"=qo)]
+    };
+    outArray
     }
     else
     {
@@ -180,12 +374,16 @@ fun main() {
  }
  else
  {
- 	("id"=0, "name"="takiegoimienianiktnienada", "textareasno"=0)
+ 	("id"=0, "name"="takiegoimienianiktnienada", "textareasno"=0, "redirection"="nowhere", "welcome"="noone", "timetofill"=0)
  }; 
 
 var surveyquestions = query { for (rquestion <-- textareas) where (rquestion.surveyid == selectedsrv.id) [rquestion] };
 
-var p = page <table> { ( surveyFormlet(surveyquestions) ) => fun (r) {surveySummarize(r,selectedsrv.id,selectedsrv.name)} } </table>;
+var checkboxes = prepareCheckboxes(selectedsrv.id);
+
+var startValue = 1;
+
+var p = page <table> { ( nSurveyFormlet(startValue,surveyquestions,checkboxes) ) => fun (r) {surveySummarize(r,selectedsrv.id,selectedsrv.name,selectedsrv.redirection)} } </table>;
 
 
 #tutaj wrzucic ifa ktory sprawdzi ID surveya i tyle
@@ -218,16 +416,11 @@ page
 
  <h1>{stringToXml(selectedsrv.name)}</h1>
 
- <p><i>Please complete this short survey.</i></p>
- <p><i>It shouldn't take you more thank</i> X <i>minutes.</i></p>
+ <p><i>{stringToXml(selectedsrv.welcome)}</i></p>
+ <p><i>It shouldn't take you more than</i> {intToXml(selectedsrv.timetofill)} <i>minutes to fill it out.</i></p>
 
 {|p|}
 
-<hr />
-
- <p> <u>THINK OF ADDING TIME ESTIMATION AS A PROPERTY OF A SURVEY IN THE NEXT SPRINT !!</u></p>
- <p> <u>THINK OF ADDING OWNER-DEFINED WORDS TO ENCOURAGE PEOPLE TO FILL OUT THE SURVEY AS A PROPERTY OF A SURVEY IN THE NEXT SPRINT !!</u></p>
- <p> <u>THINK OF ADDING OWNER-DEFINED WORDS TO THANK PEOPLE FOR FILLING OUT THE SURVEY AS A PROPERTY OF A SURVEY IN THE NEXT SPRINT !!</u></p>
 
 </body>				  
 </html>

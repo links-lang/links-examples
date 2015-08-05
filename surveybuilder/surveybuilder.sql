@@ -2,10 +2,14 @@ create database surveybuilder;
 
 -- database within which scope will be stored all tables from SurveyBuilder application
 
-create table surveys(
-id serial NOT NULL,
-name varchar(255),
-textareasno integer
+CREATE TABLE surveys
+(
+  id serial NOT NULL,
+  name character varying(255),
+  textareasno integer,
+  redirection text,
+  welcome text,
+  timetofill integer,
 );
 
 create table surveyrespondents(
@@ -27,8 +31,40 @@ respondendid integer,
 answer text
 );
 
+-- tables connected with checkboxes !
+
+create table checkboxquestions(
+id serial NOT NULL,
+surveyid integer,
+checkboxcontent text
+);
+
+create table checkboxoptions(
+id serial NOT NULL,
+questionid integer,
+optioncontent text
+);
+
+create table checkboxentries(
+id serial NOT NULL,
+optionid integer,
+respondendid integer,
+optionvalue integer
+);
+
+-- tables for temporary operations
+
 create table tmpquestions(
 name text
 );
 
--- Remember to delete the content after creation of a survey !
+create table tmpcbquestions(
+id serial NOT NULL,
+qcontent text
+);
+
+create table tmpcboptions(
+-- pomyslec nad jakims ID tutaj, sprobujemy na razie bez
+cbqid integer,
+ocontent text
+);

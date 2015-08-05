@@ -4,7 +4,10 @@ var surveys =
     table "surveys"
     with (
 	  name : String,
-	  textareasno : Int
+	  textareasno : Int,
+	  redirection : String,
+	  welcome : String,
+	  timetofill : Int
     	  ) from db;
 
 var readysurveys =
@@ -23,41 +26,127 @@ var textareas =
 
 var tmpquestions = table "tmpquestions" with (name : String) from db;
 
+#dodac 3 zmienne zwiazane z tmpami checkboxow
+
+var tmpcbquestions =
+	table "tmpcbquestions"
+	with (
+	qcontent : String
+	) from db;
+
+var readytmpcbq =
+	table "tmpcbquestions"
+	with (
+	id : Int,
+	qcontent : String
+	) from db;
+
+var tmpcboptions =
+	table "tmpcboptions"
+	with (
+	cbqid : Int,
+	ocontent : String
+	) from db;
+
+var checkboxquestions = 
+	table "checkboxquestions"
+	with (
+	surveyid : Int,
+	checkboxcontent : String
+	) from db;
+
+var readycheckboxquestions = 
+	table "checkboxquestions"
+	with (
+	id : Int,
+	surveyid : Int,
+	checkboxcontent : String
+	) from db;
+
+var checkboxoptions = 
+	table "checkboxoptions"
+	with (
+	questionid : Int,
+	optioncontent : String
+	) from db;
+
+
 var nameform = formlet 
                <#>
                	<p>After you have done adding new questions, please give this survey an unique name, so that it might be recognizable among other surveys</p>
 	         	<p><b>Your survey name:</b> {input -> surveyname}</p>
+	         	<p><b>"Welcome text" which will be displayed to the respondent on the first page of the survey.</b> </p>
+	         	<p>{textarea("Please complete this short survey.") -> helloworld}</p>
+	         	<p><b>Time needed to fill out the survey: (in minutes) </b> {inputInt -> maxtime}</p>
+	         	<p><b>Link to redirect after completing the survey: (remember of http://) </b> {input -> redirlnk}</p> 
 	         	<p>To proceed to the next step of survey creation please click on 'next' button.</p>
 				{submitButton("next") -> submit} 
+				<hr />
                </#> 
-               yields {(surveyname=surveyname)};
+               yields {(surveyname=surveyname, welcomewords=helloworld, maxtime=maxtime, redirlnk=redirlnk)};
 
 fun add(name) {
- insert tmpquestions values [(name=name)];
- main()
+	insert tmpquestions values [(name=name)];
+	main()
 }
 
 fun remove(name) {
- delete (r <-- tmpquestions) where (r.name == name);
- main()
+	delete (r <-- tmpquestions) where (r.name == name);
+	main()
 }
 
-fun summarizesurvey(surveyname)
+fun addcbquestion(name) {
+	insert tmpcbquestions values [(qcontent=name)];
+	main()
+}
+
+fun removecbquestion(name) {
+	delete (r <-- tmpcbquestions) where (r.qcontent == name);
+	main()
+}
+
+fun addcboption(name, qid)
+{
+	insert tmpcboptions values [(cbqid=qid, ocontent=name)];
+	main()
+}
+
+fun deletecboption(name, qid)
+{
+	delete (r <-- tmpcboptions) where (r.cbqid == qid && r.ocontent == name);
+	main()
+}
+
+
+fun summarizesurvey(surveydata)
 {
 	var surveyform = formlet
 					<#>
 					<p>Upon information you entered on the previous page your survey will be like:</p>
-					<p><b>survey name</b> - <em>{stringToXml(surveyname.surveyname)}</em></p>
+					<p><b>survey name</b> - <em>{stringToXml(surveydata.surveyname)}</em></p>
+					<p><b>welcoming</b> - <em>{stringToXml(surveydata.welcomewords)}</em></p>
+					<p><b>time</b> - <em>{intToXml(surveydata.maxtime)} minutes</em></p>
+					<p><b>link</b> - <em>{stringToXml(surveydata.redirlnk)}</em></p>
 					<p><b>published questions:</b></p>
 					<table>
      				 {for (tmpquestion <- query {for (tmpquestion <-- tmpquestions) [tmpquestion]})
         			  <tr><td><em>{stringToXml(tmpquestion.name)}</em></td></tr>}
      				</table>
+     				<p><b>checkboxes:</b></p>
+     				{for (tmpcbquestion <- query {for (tmpcbquestion <-- readytmpcbq) [tmpcbquestion]})
+        			  <p><em>{stringToXml(tmpcbquestion.qcontent)}</em>
+
+        			  <ul>
+        			   {for (tmpcboption <- query {for (tmpcboption <-- tmpcboptions) where(tmpcboption.cbqid == tmpcbquestion.id) [tmpcboption]})
+        			  <li><em>{stringToXml(tmpcboption.ocontent)}</em></li>}
+        			  </ul>
+
+        			  </p>}
 					<br />
 					<p>If you really want to generate this survey click on the button below or go back to revise the survey content.</p>
 					{submitButton("generate survey") -> submit} 
 					</#>
-					yields {surveyname};
+					yields {surveydata};
 
 page
 <html> 
@@ -89,15 +178,18 @@ fun deleteTemporalEntry(r)
 	()
 }
 
-fun finalpage(nameofsurvey)
+fun finalpage(surveydata)
 {
 
 	# insert the information about the created survey to the 'surveys' table
 	var questslist = asList(tmpquestions);
 	var questsno = length(questslist);
 	insert surveys
-  	values [(name=nameofsurvey.surveyname,
-	   textareasno=questsno
+  	values [(name=surveydata.surveyname,
+	   textareasno=questsno,
+	   redirection=surveydata.redirlnk,
+	   welcome=surveydata.welcomewords,
+	   timetofill=surveydata.maxtime
 	   )];
 	# insert the questions to the 'textareas' table
 	var rdsurveys = asList(readysurveys);
@@ -119,6 +211,27 @@ fun finalpage(nameofsurvey)
 	[(costam = r.surveyid)]
 	};
 
+	#insert the checkboxes
+	var cbslist = asList(readytmpcbq);
+
+	var nosensevar = for (cbquestion <- cbslist) {
+	insertCbQuestion(cbquestion,survid);
+	[]
+	};
+
+	var indbcbslist = asList(readycheckboxquestions);
+
+	var nawszelkiwypadek = for (indbcb <- indbcbslist) {
+	for (tmpcb <- cbslist)
+	where (tmpcb.qcontent == indbcb.checkboxcontent)
+	addOptionsToCbQuestion(indbcb.id, tmpcb.id)
+	};
+
+	#delete temporary tables connected to checkboxes
+ 	delete (x <-- tmpcboptions);
+ 	delete (x <-- readytmpcbq);
+
+
 page
 <html> 
  <title>SurveyGenerator</title>
@@ -130,6 +243,29 @@ page
 </body>				  
 </html>
 
+}
+
+fun addOptionsToCbQuestion(cbdbid, tmpid)
+{
+	var cbolist = asList(tmpcboptions);
+	var juzrozumiem = for (tmpopt <- cbolist)
+	where (tmpopt.cbqid == tmpid)
+	insertSingleCbOption(cbdbid,tmpopt.ocontent);
+	[]
+}
+
+fun insertCbQuestion(cbquestion,sid)
+{
+	insert checkboxquestions
+	values [(surveyid=sid, checkboxcontent=cbquestion.qcontent)];
+	()
+}
+
+fun insertSingleCbOption(cbid, content)
+{
+	insert checkboxoptions
+	values [(questionid=cbid, optioncontent=content)];
+	[]
 }
 
 fun main() {
@@ -144,7 +280,7 @@ page
 
  	<p>Please write below which questions you want to have on your survey and then click 'add question' button to add this question to the survey.</p>
     <form l:action="{add(tmpquestion)}" method="POST">
-      <input l:name="tmpquestion"/>
+      Add open question: <input l:name="tmpquestion"/>
       <button type="submit">add question</button>
     </form>
     <p>Below there are questions you want to have on your survey:</p>
@@ -159,6 +295,45 @@ page
         </tr>}
      </table>
    	<p>If you change your mind and would like to remove a question from the survey then click a proper button next to the question.</p>
+   	<p>In your survey you can also have the questions of a '<b>checkbox</b>' type. You need to write below a question and then to each question you can write possible answers which will be displayed in a form of checkboxes. </p>
+
+   	 <form l:action="{addcbquestion(tmpcbquestion)}" method="POST">
+      Add checkbox question: <input l:name="tmpcbquestion"/>
+      <button type="submit">add cb question</button>
+    </form>
+    <p>Below there are ....:</p>
+
+    {
+    for (tmpcbquestion <- query {for (tmpcbquestion <-- readytmpcbq) [tmpcbquestion]})
+    {
+        <p>
+        
+       
+        <form l:action="{removecbquestion(tmpcbquestion.qcontent)}" method="POST">
+        {stringToXml(tmpcbquestion.qcontent)}
+        <button type="submit">remove this cb question</button>
+        </form>
+
+        <table>
+
+        {for (tmpcboption <- query {for (tmpcboption <-- tmpcboptions) where (tmpcboption.cbqid == tmpcbquestion.id) [tmpcboption]})
+        <tr><td>{stringToXml(tmpcboption.ocontent)}</td>
+            <td><form l:action="{deletecboption(tmpcboption.ocontent,tmpcbquestion.id)}" method="POST">
+                 <button type="submit">remove cb option</button>
+                </form>
+            </td>
+        </tr>}
+
+        </table>
+
+	 <form l:action="{addcboption(tmpcboption,tmpcbquestion.id)}" method="POST">
+      Add checkbox option: <input l:name="tmpcboption"/>
+      <button type="submit">add cb option</button>
+    </form>
+
+       	</p>
+    }}
+
    	{
    		( nameform ) => summarizesurvey
    	}

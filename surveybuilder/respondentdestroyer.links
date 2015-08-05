@@ -1,0 +1,118 @@
+var db = database "surveybuilder";
+
+var surveyrespondents =
+	table "surveyrespondents"
+	with (
+	id : Int,
+	surveyid : Int,
+	name : String
+	) from db;
+
+var answers =
+	table "textareaentries"
+	with
+	(
+	id : Int,
+	textareaid : Int,
+	respondendid : Int,
+	answer : String
+	) from db;
+
+var checkboxdbentries =
+    table "checkboxentries"
+    with (
+    id : Int,
+    optionid : Int,
+    respondendid : Int,
+    optionvalue : Int
+    ) from db;
+
+fun getRespondent(respondentselected)
+{
+	
+	if (length(respondentselected) > 0){
+	var selectedrespondent = hd(respondentselected);
+	for (s <-- surveyrespondents)
+  	where (s.id == stringToInt(selectedrespondent))
+    [("id"=s.id, "surveyid"=s.surveyid, "name"=s.name)]
+    }
+    else
+    {
+    []
+    }
+}
+
+
+fun removeRespondent(respondentId)
+{
+	delete (r <-- surveyrespondents) where (r.id == respondentId); 
+	()
+}
+
+fun removeResponses(respondentId)
+{
+	delete (r <-- answers) where (r.respondendid == respondentId);
+	delete (t <-- checkboxdbentries) where (t.respondendid == respondentId);
+	()
+}
+
+fun main() {
+
+var env = environment();
+var srvopt = for ((x,y) <- env) where (x == "respondentId") [y]; 
+var rspndntLst = getRespondent(srvopt);
+var selectedrespondent = if (length(rspndntLst) > 0)
+ {
+ 	hd(rspndntLst)
+ }
+ else
+ {
+ 	("id"=0, "name"="takiegoimienianiktnienada", "surveyid"=0 )
+ };
+
+
+if (selectedrespondent.id <> 0)
+{
+
+removeResponses(selectedrespondent.id);
+removeRespondent(selectedrespondent.id);
+
+page
+<html> 
+ <title>SurveyBuilder</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>RespondentDestroyer</h1>
+
+
+
+<p>This respondent has been successfully removed. To go to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a> or go back to the respondents management module.</p>
+
+
+</body>				  
+</html>
+
+}
+else
+{
+
+page
+<html> 
+ <title>SurveyBuilder</title>
+ <body bgcolor="#ffffff">    
+
+ <h1>RespondentDestroyer</h1>
+
+
+
+<p>To remove the respondent you need to pass the proper ID of this respondent. To go to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a> or go back to the respondents management module.</p>
+
+
+</body>				  
+</html>
+
+}
+
+}
+
+main()

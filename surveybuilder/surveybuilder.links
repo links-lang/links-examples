@@ -91,7 +91,18 @@ for (rsurvey <- query
 	)
 		{
 		<tr border="1">
-		<td border="1"><a href="{generateSurveyRespondentsLink(rsurvey.name)}">{stringToXml(rsurvey.name)}</a></td>
+		<td border="1">
+		{
+		if(getNumberOfRespondents(rsurvey.id) > 0)
+		{
+		<a href="{generateSurveyRespondentsLink(rsurvey.name)}">{stringToXml(rsurvey.name)}</a>
+		}
+		else
+		{
+		{stringToXml(rsurvey.name)}
+		}
+		}
+		</td>
 		<td border="1">{intToXml(getNumberOfRespondents(rsurvey.id))}</td>
 		<td border="1"><a href="{generateSurveyResultsAnalyzerLink(rsurvey.name)}">click here to see</a></td>
 		<td border="1"><a href="{generateSurveyFillerLink(rsurvey.name)}">click here to go</a></td>
