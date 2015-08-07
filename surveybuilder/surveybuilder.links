@@ -61,10 +61,10 @@ page
 <p>Welcome to the <b>SurveyBuilder</b> application! This small survey management system consists of 4 modules which will help you to cope with your surveys.</p>
 <p>The modules include:
 <ul>
-<li>SurveyGenerator - maybe some description here ?</li>
-<li>SurveyFiller - maybe some description here ?</li>
-<li>SurveyResultsAnalizer - maybe some description here ?</li>
-<li>SingleSurveyEditor - maybe some description here ?</li>
+<li>SurveyGenerator - module responsible for generation a single survey. User types the questions he/she wants to include in his/her survey and chooses for each question its type (open questions, questions with some user-predefined answers). Moreover user should provide the name of the survey which will be generated and also the time needed to fill out the survey along with some welcome text and a link where respondent may go after filling out the survey.</li>
+<li>SurveyFiller - module which is sent to the respondent so that he/she could fill out the form. Given a proper HTTP parameters this module builds a survey form so that user can answer the given question and then stores the information in the database.</li>
+<li>SurveyResultsAnalizer - module responsible for displaying the answers of respondents who had already filled out the survey.</li>
+<li>SingleSurveyEditor - odule which is sent to the respondent so that he/she could edit his/her answers. Behaves similarly to SurveyFiller module with the proviso that the survey form is already filled with previous user answers at the beginning. It is also impossible to change the user name.</li>
 </ul>
 
 </p>
@@ -104,7 +104,21 @@ for (rsurvey <- query
 		}
 		</td>
 		<td border="1">{intToXml(getNumberOfRespondents(rsurvey.id))}</td>
-		<td border="1"><a href="{generateSurveyResultsAnalyzerLink(rsurvey.name)}">click here to see</a></td>
+		
+		<td border="1">
+		{
+		if(getNumberOfRespondents(rsurvey.id) > 0)
+		{
+		<a href="{generateSurveyResultsAnalyzerLink(rsurvey.name)}">click here to see</a>
+		}
+		else
+		{
+		{stringToXml("lack of results")}
+		}
+		}
+		
+		</td>
+
 		<td border="1"><a href="{generateSurveyFillerLink(rsurvey.name)}">click here to go</a></td>
 		<td border="1"><a href="{generateSurveyDestroyerLink(rsurvey.name)}">click here to remove</a></td>
 		</tr>

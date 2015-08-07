@@ -73,7 +73,8 @@ var checkboxoptions =
 
 var nameform = formlet 
                <#>
-               	<p>After you have done adding new questions, please give this survey an unique name, so that it might be recognizable among other surveys</p>
+               <br></br>
+               	<p>After you have done adding questions, please give this survey an unique name, so that it might be recognizable among other surveys.</p>
 	         	<p><b>Your survey name:</b> {input -> surveyname}</p>
 	         	<p><b>"Welcome text" which will be displayed to the respondent on the first page of the survey.</b> </p>
 	         	<p>{textarea("Please complete this short survey.") -> helloworld}</p>
@@ -237,6 +238,7 @@ page
  <title>SurveyGenerator</title>
 
  <body bgcolor="#ffffff">
+ <h1>SurveyGenerator</h1>
       
 <p>Your survey has been created. Thank you for using SurveyGenerator. To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
 
@@ -275,51 +277,55 @@ page
  <title>SurveyGenerator</title>
 
  <body bgcolor="#ffffff">    
- <h1>Welcome to SurveyGenerator module !</h1>
+ <h1>SurveyGenerator</h1>
 
 
- 	<p>Please write below which questions you want to have on your survey and then click 'add question' button to add this question to the survey.</p>
+ 	<p>Please write below which <b>open</b> questions you want to have on your survey and then click 'add question' button to add this question to the survey.</p>
     <form l:action="{add(tmpquestion)}" method="POST">
-      Add open question: <input l:name="tmpquestion"/>
+      Add <b>'open'</b> question: <input l:name="tmpquestion"/>
       <button type="submit">add question</button>
     </form>
-    <p>Below there are questions you want to have on your survey:</p>
+    <p>Below there are open questions you want to have on your survey:</p>
     
-    <table>
+    <ul>
      {for (tmpquestion <- query {for (tmpquestion <-- tmpquestions) [tmpquestion]})
-        <tr><td>{stringToXml(tmpquestion.name)}</td>
-            <td><form l:action="{remove(tmpquestion.name)}" method="POST">
-                 <button type="submit">remove this question</button>
+        <li>
+        	
+        
+            	<form l:action="{remove(tmpquestion.name)}" method="POST">
+                 {stringToXml(tmpquestion.name)} <button type="submit">remove question</button>
                 </form>
-            </td>
-        </tr>}
-     </table>
+            
+        </li>}
+     </ul>
    	<p>If you change your mind and would like to remove a question from the survey then click a proper button next to the question.</p>
-   	<p>In your survey you can also have the questions of a '<b>checkbox</b>' type. You need to write below a question and then to each question you can write possible answers which will be displayed in a form of checkboxes. </p>
+   	<p>In your survey you can also have the questions of a '<b>checkbox</b>' type. You need to write below a question and then to each question you can write possible answers which will be displayed on a survey in a form of checkboxes. </p>
 
    	 <form l:action="{addcbquestion(tmpcbquestion)}" method="POST">
-      Add checkbox question: <input l:name="tmpcbquestion"/>
-      <button type="submit">add cb question</button>
+      Add <b>'checkbox'</b> question: <input l:name="tmpcbquestion"/>
+      <button type="submit">add question</button>
     </form>
-    <p>Below there are ....:</p>
-
+    <p>Below there are 'checkbox' type questions you want to have on your survey. To each question you can add infinite number of options which then the respondents of your survey might select. To add the single option you need to type its content to the input field below the question (and also below already defined options) and press 'add option' button.</p>
+    <ul>
     {
     for (tmpcbquestion <- query {for (tmpcbquestion <-- readytmpcbq) [tmpcbquestion]})
     {
-        <p>
+        <li style="margin-top:.8em;margin-bottom:.8em;">
         
        
         <form l:action="{removecbquestion(tmpcbquestion.qcontent)}" method="POST">
         {stringToXml(tmpcbquestion.qcontent)}
-        <button type="submit">remove this cb question</button>
+        <button type="submit">remove question</button>
         </form>
 
         <table>
 
         {for (tmpcboption <- query {for (tmpcboption <-- tmpcboptions) where (tmpcboption.cbqid == tmpcbquestion.id) [tmpcboption]})
-        <tr><td>{stringToXml(tmpcboption.ocontent)}</td>
+        <tr>
+			<td colspan="5"></td><td colspan="5"></td><td colspan="5"></td><td colspan="5"></td><td colspan="5"></td><td colspan="5"></td><td colspan="5"></td>
+        <td>{stringToXml(tmpcboption.ocontent)}</td>
             <td><form l:action="{deletecboption(tmpcboption.ocontent,tmpcbquestion.id)}" method="POST">
-                 <button type="submit">remove cb option</button>
+                 <button type="submit">remove option</button>
                 </form>
             </td>
         </tr>}
@@ -327,12 +333,13 @@ page
         </table>
 
 	 <form l:action="{addcboption(tmpcboption,tmpcbquestion.id)}" method="POST">
-      Add checkbox option: <input l:name="tmpcboption"/>
-      <button type="submit">add cb option</button>
+      Add <b>'checkbox'</b> option: <input l:name="tmpcboption"/>
+      <button type="submit">add option</button>
     </form>
 
-       	</p>
+       	</li>
     }}
+    </ul>
 
    	{
    		( nameform ) => summarizesurvey

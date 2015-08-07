@@ -121,6 +121,15 @@ var nameforfor = for (singleQuestion <- cbdata)
     
 };
 
+var go2link = if(goLink == "" || not(goLink =~ /http/))
+{
+    "http://www.bbc.co.uk"
+}
+else
+{
+    goLink
+};
+
 page
 <html> 
  <title>SurveyFiller</title>
@@ -129,7 +138,7 @@ page
  <h1>{stringToXml(sName)}</h1>
  
  <p>Your answers have been successfully stored in our database ! We would like to thank you once more for your time and effort which involved filling out this survey !</p>
- <p>The author of this survey recommends you to visit <a href="{goLink}">{stringToXml(goLink)}</a>.</p>
+ <p>The author of this survey recommends you to visit <a href="{go2link}">{stringToXml(go2link)}</a>.</p>
  <br></br><br></br>
  
  <img src="bugswavinggloveless.png" alt="" width="250" height="250"></img>
@@ -270,7 +279,7 @@ fun nSurveyFormlet(copt, textareaquestions, checkboxesqo)
                      <td> <b> {stringToXml(hd(textareaquestions).questioncontent)} </b> </td>
                  </tr>
                  <tr>
-                    <td> {textarea("") -> lanswer} </td>
+                    <td> {textareacss("", "width: 340px; height: 85px;") -> lanswer} </td>
                  </tr>
                  { nSurveyFormlet(copt,tl(textareaquestions),checkboxesqo) -> rest }      
              </#>
