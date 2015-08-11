@@ -1,6 +1,9 @@
+-- database within which scope will be stored all the tables of SurveyBuilder application
+
 create database surveybuilder;
 
--- database within which scope will be stored all tables from SurveyBuilder application
+
+-- database tables
 
 CREATE TABLE surveys
 (
@@ -18,6 +21,8 @@ surveyid integer,
 name varchar(255)
 );
 
+-- tables connected with textareas (open questions)
+
 create table textareas(
 id serial NOT NULL,
 surveyid integer,
@@ -31,7 +36,7 @@ respondendid integer,
 answer text
 );
 
--- tables connected with checkboxes !
+-- tables connected with checkboxes 
 
 create table checkboxquestions(
 id serial NOT NULL,
@@ -64,7 +69,6 @@ qcontent text
 );
 
 create table tmpcboptions(
--- pomyslec nad jakims ID tutaj, sprobujemy na razie bez
 cbqid integer,
 ocontent text
 );

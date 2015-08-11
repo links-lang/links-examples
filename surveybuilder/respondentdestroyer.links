@@ -1,3 +1,7 @@
+# In this file take place all the operations connected with the removal of a single respondent and all the entries connected with him/her from a database. As an input parameter we get a respondent ID number, which is ID that a given respondent has in a database. The logic stored in this file is called from survey-respondents.links file after an user clicks on a proper "click here to remove link".
+
+# Variables used in database operations.
+
 var db = database "surveybuilder";
 
 var surveyrespondents =
@@ -27,6 +31,7 @@ var checkboxdbentries =
     optionvalue : Int
     ) from db;
 
+# Function which downloads and returns the record with repondent data.
 fun getRespondent(respondentselected)
 {
 	
@@ -41,7 +46,6 @@ fun getRespondent(respondentselected)
     []
     }
 }
-
 
 fun removeRespondent(respondentId)
 {
@@ -58,6 +62,7 @@ fun removeResponses(respondentId)
 
 fun main() {
 
+# Set of operations on HTML input parameters done to read the ID of respondent.
 var env = environment();
 var srvopt = for ((x,y) <- env) where (x == "respondentId") [y]; 
 var rspndntLst = getRespondent(srvopt);
@@ -70,6 +75,7 @@ var selectedrespondent = if (length(rspndntLst) > 0)
  	("id"=0, "name"="takiegoimienianiktnienada", "surveyid"=0 )
  };
 
+# Condition check whether the given input parameter has its 'reflefction' in a database. If not we display a proper error text.
 
 if (selectedrespondent.id <> 0)
 {

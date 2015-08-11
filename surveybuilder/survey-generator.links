@@ -1,3 +1,6 @@
+# This module is responsible for generating surveys. User can type in the question of different types, give the name of the survey, the time needed to fill it out as long as some welcome text for potential respondents. All the question generation consists of 3 steps where the last 2 are just a confirmations. Then the properly processed information about the survey are stored in a database.
+
+# Variables used in database operations.
 var db = database "surveybuilder";
 
 var surveys =
@@ -25,8 +28,6 @@ var textareas =
     	  ) from db;
 
 var tmpquestions = table "tmpquestions" with (name : String) from db;
-
-#dodac 3 zmienne zwiazane z tmpami checkboxow
 
 var tmpcbquestions =
 	table "tmpcbquestions"
@@ -192,29 +193,23 @@ fun finalpage(surveydata)
 	   welcome=surveydata.welcomewords,
 	   timetofill=surveydata.maxtime
 	   )];
-	# insert the questions to the 'textareas' table
+	# insert the open questions to the 'textareas' table
 	var rdsurveys = asList(readysurveys);
-	# wyciagamy ostatnie
 	var rvrsdsurveys = reverse(rdsurveys);
 	var lastsurvey = hd(rvrsdsurveys);
-	# wyciagamy id z tego ostatnio stworzonego
 	var survid = lastsurvey.id;
 	var unodos = for (survque <- questslist)
 	{
 	[(surveyid=survid, questioncontent=survque.name)]
 	};
-	# don't know way but there must be this var...
 	var magicvariable = for (r <- unodos) 
 	{
 	insertsinglerow(r);
-	# delete the table '', which contains temporal questions for only this survey
 	deleteTemporalEntry(r);
 	[(costam = r.surveyid)]
 	};
 
-	#insert the checkboxes
 	var cbslist = asList(readytmpcbq);
-
 	var nosensevar = for (cbquestion <- cbslist) {
 	insertCbQuestion(cbquestion,survid);
 	[]
@@ -228,7 +223,6 @@ fun finalpage(surveydata)
 	addOptionsToCbQuestion(indbcb.id, tmpcb.id)
 	};
 
-	#delete temporary tables connected to checkboxes
  	delete (x <-- tmpcboptions);
  	delete (x <-- readytmpcbq);
 

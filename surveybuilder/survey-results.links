@@ -1,3 +1,7 @@
+# This module is responsible for creation of the summary of the answers given by the respondents to date. For the given survey (ID passed as an HTML parameter) the module downloads all the answers to the questions and displays it in a form of table. For open questions in the row above there is a question content and in the row below there are all the answers. For the 'checkbox type' questions, there is a question content in the upper row and all possible answers together with their number of selections in a lower row. 
+
+# Variables used in database operations.
+
 var db = database "surveybuilder";
 
 var readysurveys =
@@ -119,9 +123,9 @@ fun getSurvey(surveyselected)
 {
 	
 	if (length(surveyselected) > 0){
-	var selectedsurveyname = hd(surveyselected);
+	var selectedsurveyid = hd(surveyselected);
 	for (s <-- readysurveys)
-  	where (s.name == selectedsurveyname)
+  	where (s.id == stringToInt(selectedsurveyid))
     [("id"=s.id, "name"=s.name, "textareasno"=s.textareasno)]
     }
     else
@@ -133,7 +137,7 @@ fun getSurvey(surveyselected)
 fun main() {
 
 var env = environment();
-var srvopt = for ((x,y) <- env) where (x == "surveyName") [y]; 
+var srvopt = for ((x,y) <- env) where (x == "surveyId") [y]; 
 var srvnLst = getSurvey(srvopt);
 var selectedsrv = if (length(srvnLst) > 0)
  {
@@ -156,7 +160,7 @@ page
 
  <h1>Welcome to the survey results analyzer module of the SurveyBuilder application !</h1>
 
-<p>To see the results of the survey you have to provide a proper survey name as an HTML parameter. To do that you should have in your URL something like that: "survey-results.links?surveyName=<em>yourSurveyName</em>".</p>
+<p>To see the results of the survey you have to provide a proper survey ID as an HTML parameter. To do that you should have in your URL something like that: "survey-results.links?surveyId=<em>yourSurveyId</em>".</p>
 <p>To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
  
    
