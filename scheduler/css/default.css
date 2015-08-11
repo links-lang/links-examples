@@ -1,0 +1,160 @@
+body {
+  background-image: url("/img/default_background.jpg");
+  background-attachment: fixed;
+}
+
+div.body {
+  background-color: lightblue;
+  margin-left: auto;
+  margin-right: auto;
+  border: dotted 4px darkblue;  
+  width: 1000px;
+}
+
+div.head {
+  background-image: url("/img/default_head_background.jpg");
+  height: 200px;
+}
+
+div.head h1 {
+  clear: left;
+  float: left;
+  font: bold italic 4em sans-serif;
+  color: rgb(10, 0, 60);
+  width: auto;
+  height: auto;
+  position: relative;
+  left: 7%;
+}
+
+div.head_button {
+  background-color: rgb(100, 100, 200);
+  float: left;
+  width: 150px;
+  height: 40px;
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+div.head_button p {
+  width: inherit;
+  height: inherit;
+  margin-top: 5px;
+  font: bold italic 1.5em serif;
+  text-align: center;
+}
+
+div.head_button p a:link{
+  text-decoration: none;
+  color: rgb(10, 0, 100);
+}
+
+div.head_button p a:visited {
+  text-decoration: none;
+  color: rgb(10, 0, 100);
+}
+
+div.content {
+  width: inherit;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+div.foot {
+  width: inherit;
+  height: 50px;
+  border-top: 4px dotted rgb(50, 50, 255);
+  background-color: rgb(170, 180, 255);
+}
+
+div.foot p {
+  float: right;
+  margin-top: 5px;
+  margin-right: 20px;
+}
+
+h1.title {
+  font: bold italic 2.5em serif;
+  color: rgb(10, 0, 60);
+  margin-left: 100px;
+}
+
+table.events {
+  width: 60%;
+  margin-left: 100px;
+}
+
+table.events th {
+  font-size: 1.5em;
+}
+
+table.events  td {
+  text-align: center;
+  font-size: 1.2em;
+}
+
+a.create_event {
+  margin-left: 200px;
+  font-size: 1.4em;
+}
+
+ul.plist {
+  margin-left: 100px;
+  font-size: 1.4em;
+}
+
+ul.plist li {
+  width: 50%
+}
+
+ul.plist button {
+  float: right;
+  font-size: 0.7em;
+}
+
+div.event {
+  margin-left: 60px;
+}
+
+div.event h3 {
+  color: rgb(10, 0, 60);
+  font-size: 1.5em;
+}
+
+div.event p {
+  padding-left: 30px;
+  font-family: sans-serif;
+  font-size: 1.3em;
+  font-weight: bold;
+}
+
+table.event {
+  margin-left: 30px;
+  text-align: center;
+  font-size: 1.2em;
+}
+
+table.event td {
+  padding-left: 7px;
+  padding-right: 7px;
+}
+
+table.event td.ok {
+  background-color: rgb(100, 230, 100);
+}
+
+table.event td.no {
+  background-color: rgb(230, 130, 130);
+}
+
+table.event a.delete {
+  float: right
+}
+
+div.event button {
+  margin-left: 10%;
+  font-size: 1.3em;
+  padding-left: 30px;
+  padding-right: 30px;
+}
+
