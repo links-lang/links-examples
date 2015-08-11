@@ -1,3 +1,8 @@
+# This file is the core of the whole "SurveyBuilder" survey management system. It is the first file to be run and from this level all other files are called depending what the user wants to do. In contains a short description of an application. Moreover there is a table with all surveys created by the user by the time and links to the modules responsible for different actions upon the surveys as well as reference to SurveyGenerator module.
+
+
+# Variables used in database operations.
+
 var db = database "surveybuilder";
 
 var surveys =
@@ -25,27 +30,27 @@ fun getNumberOfRespondents(surveyId)
 	result
 }
 
-fun generateSurveyResultsAnalyzerLink(surveyName)
+fun generateSurveyResultsAnalyzerLink(surveyId)
 {
-	var link = "survey-results.links?surveyName="^^surveyName;
+	var link = "survey-results.links?surveyId="^^intToString(surveyId);
 	link
 }
 
-fun generateSurveyFillerLink(surveyName)
+fun generateSurveyFillerLink(surveyId)
 {
-	var link = "survey-filler.links?surveyName="^^surveyName;
+	var link = "survey-filler.links?surveyId="^^intToString(surveyId);
 	link
 }
 
-fun generateSurveyDestroyerLink(surveyName)
+fun generateSurveyDestroyerLink(surveyId)
 {
-	var link = "surveydestroyer.links?surveyName="^^surveyName;
+	var link = "surveydestroyer.links?surveyId="^^intToString(surveyId);
 	link
 }
 
-fun generateSurveyRespondentsLink(surveyName)
+fun generateSurveyRespondentsLink(surveyId)
 {
-	var link = "survey-respondents.links?surveyName="^^surveyName;
+	var link = "survey-respondents.links?surveyId="^^intToString(surveyId);
 	link
 }
 
@@ -64,7 +69,7 @@ page
 <li>SurveyGenerator - module responsible for generation a single survey. User types the questions he/she wants to include in his/her survey and chooses for each question its type (open questions, questions with some user-predefined answers). Moreover user should provide the name of the survey which will be generated and also the time needed to fill out the survey along with some welcome text and a link where respondent may go after filling out the survey.</li>
 <li>SurveyFiller - module which is sent to the respondent so that he/she could fill out the form. Given a proper HTTP parameters this module builds a survey form so that user can answer the given question and then stores the information in the database.</li>
 <li>SurveyResultsAnalizer - module responsible for displaying the answers of respondents who had already filled out the survey.</li>
-<li>SingleSurveyEditor - odule which is sent to the respondent so that he/she could edit his/her answers. Behaves similarly to SurveyFiller module with the proviso that the survey form is already filled with previous user answers at the beginning. It is also impossible to change the user name.</li>
+<li>SingleSurveyEditor - module which is sent to the respondent so that he/she could edit his/her answers. Behaves similarly to SurveyFiller module with the proviso that the survey form is already filled with previous user answers at the beginning. It is also impossible to change the user name.</li>
 </ul>
 
 </p>
@@ -95,7 +100,7 @@ for (rsurvey <- query
 		{
 		if(getNumberOfRespondents(rsurvey.id) > 0)
 		{
-		<a href="{generateSurveyRespondentsLink(rsurvey.name)}">{stringToXml(rsurvey.name)}</a>
+		<a href="{generateSurveyRespondentsLink(rsurvey.id)}">{stringToXml(rsurvey.name)}</a>
 		}
 		else
 		{
@@ -109,7 +114,7 @@ for (rsurvey <- query
 		{
 		if(getNumberOfRespondents(rsurvey.id) > 0)
 		{
-		<a href="{generateSurveyResultsAnalyzerLink(rsurvey.name)}">click here to see</a>
+		<a href="{generateSurveyResultsAnalyzerLink(rsurvey.id)}">click here to see</a>
 		}
 		else
 		{
@@ -119,8 +124,8 @@ for (rsurvey <- query
 		
 		</td>
 
-		<td border="1"><a href="{generateSurveyFillerLink(rsurvey.name)}">click here to go</a></td>
-		<td border="1"><a href="{generateSurveyDestroyerLink(rsurvey.name)}">click here to remove</a></td>
+		<td border="1"><a href="{generateSurveyFillerLink(rsurvey.id)}">click here to go</a></td>
+		<td border="1"><a href="{generateSurveyDestroyerLink(rsurvey.id)}">click here to remove</a></td>
 		</tr>
 		}
         

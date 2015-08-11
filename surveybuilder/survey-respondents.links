@@ -1,3 +1,7 @@
+# In this file take place all the operations connected with the management of the respondents of the single survey. From that place we can redirect to the file responsible for removal of single respondent or editing the single respondent answers. The respondents of the survey (which ID is given as HTML parameter) are displayed in the the table and the links to the particular action for each respondent is being projected.
+
+# Variables used in database operations.
+
 var db = database "surveybuilder";
 
 var readysurveys =
@@ -19,9 +23,9 @@ fun getSurvey(surveyselected)
 {
 	
 	if (length(surveyselected) > 0){
-	var selectedsurveyname = hd(surveyselected);
+	var selectedsurveyid = hd(surveyselected);
 	for (s <-- readysurveys)
-  	where (s.name == selectedsurveyname)
+  	where (s.id == stringToInt(selectedsurveyid))
     [("id"=s.id, "name"=s.name, "textareasno"=s.textareasno)]
     }
     else
@@ -30,9 +34,9 @@ fun getSurvey(surveyselected)
     }
 }
 
-fun generateSurveyEditLink(surveyName, respondentName)
+fun generateSurveyEditLink(surveyId, respondentId)
 {
-	var link = "survey-edit.links?surveyName="^^surveyName^^"&respondentName="^^respondentName;
+	var link = "survey-edit.links?surveyId="^^intToString(surveyId)^^"&respondentId="^^intToString(respondentId);
 	link
 }
 
@@ -45,7 +49,7 @@ fun generateRespondentRemoveLink(respondentId)
 fun main() {
 
 var env = environment();
-var srvopt = for ((x,y) <- env) where (x == "surveyName") [y]; 
+var srvopt = for ((x,y) <- env) where (x == "surveyId") [y]; 
 var srvnLst = getSurvey(srvopt);
 var selectedsrv = if (length(srvnLst) > 0)
  {
@@ -93,7 +97,7 @@ for (rrespondent <- query
 		{
 		<tr border="1">
 		<td border="1">{stringToXml(rrespondent.name)}</td>
-		<td border="1"><a href="{generateSurveyEditLink(selectedsrv.name,rrespondent.name)}">click here to edit responses</a></td>
+		<td border="1"><a href="{generateSurveyEditLink(selectedsrv.id,rrespondent.id)}">click here to edit responses</a></td>
 		<td border="1"><a href="{generateRespondentRemoveLink(rrespondent.id)}">click here to remove</a></td>
 		</tr>
 		}
@@ -125,7 +129,7 @@ page
 
 
 
-<p>Sorry, but there is no survey with the name you have given. To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
+<p>Sorry, but there is no survey with the ID you have given. To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
 
 
 </body>				  

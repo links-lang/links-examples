@@ -1,3 +1,7 @@
+# This module is responsible for editing the answers given by respondents to a survey questions. To work properly two parameters must be given: ID of an respondent and ID of the survey. Then the information about the survey and current respondent answers are downloaded from database and displayed in a form. 
+
+# Variables used in database operations.
+
 var db = database "surveybuilder";
 
 var readysurveys =
@@ -68,6 +72,8 @@ var checkboxdbentries =
     optionvalue : Int
     ) from db;
 
+
+# This function id called after user clicks on 'Next' button and submits his/her answers. It prints out his/her decisions and enables asks if he/she is 100% sure of this answers. It is kind of bridge between writing/selecting answers to all the questions and storing them in a database.
 fun editSummarize(inputData, surveyId, surveyName, respondentId)
 {
 
@@ -127,6 +133,7 @@ page
 </html>
 }
 
+# Updates an answer for a given question for a given respondent.
 fun updatesinglerowTA(r, respondentId)
 {
 	update (x <-- textareaentries)
@@ -137,6 +144,7 @@ fun updatesinglerowTA(r, respondentId)
 	()
 }
 
+# Updates an answer for a given checkbox question option for a given respondent.
 fun updateSingleCbEntry(optionId, respondentIt, checkedornot)
 {
     var asd = if(checkedornot)
@@ -158,17 +166,17 @@ fun updateSingleCbEntry(optionId, respondentIt, checkedornot)
     ()
 }
 
+# Calls all the update functions and in the end displays information about the success.
 fun confirmEdit(inputValues, sName, respondentId)
 {
 
-#update
 var data = inputValues.data.listofvalues;
 var someMagic = for(r <- data)
 {
 	updatesinglerowTA(r, respondentId);
 	[]
 };
-#update checkboxow
+
 var cbdata = inputValues.data.cbvalues;
 var nameforfor = for (singleQuestion <- cbdata)
 {
@@ -199,6 +207,7 @@ page
 
 }
 
+# Recursive function responsible for presenting answer options for the questions of a checkbox type.
 fun checkboxesFormlet(cboptions)
 {
       
@@ -218,6 +227,7 @@ fun checkboxesFormlet(cboptions)
                 }
 }
 
+# Recursive function generating form to display survey questions and then gather information from user input.
 fun surveyFormletCb(opt, questions, answers, checkboxes)
 {
     if (opt == 1)
@@ -277,39 +287,12 @@ fun surveyFormletCb(opt, questions, answers, checkboxes)
     }
 }
 
-fun surveyFormlet(questions, answers)
-{
-	if (questions == [])
-        formlet <#>
-        			<tr class="blank_row"><td colspan="5"></td></tr>
-        			<tr class="blank_row"><td colspan="5"></td></tr>  			
-        			<tr><td></td></tr>
-         			<tr><td>{submitButton("Next") -> submit}</td></tr> 
-                </#> 
-        yields { 
-        (listofvalues = [])
-        }
-	else {
-		formlet <#>
-                 <tr>
-                     <td> <b> {stringToXml(hd(questions).questioncontent)} </b> </td>
-                 </tr>
-                 <tr>
-                 	<td> {textarea(hd(answers).answer) -> lanswer} </td>
-                 </tr>
-                 { surveyFormlet(tl(questions), tl(answers)) -> rest }      
-             </#>
-    	yields
-    	(listofvalues = (id = hd(questions).id, answer = lanswer, question = hd(questions).questioncontent)::rest.listofvalues)	
-}
-}
-
 fun getSurvey(surveyselected)
 {
 	if (length(surveyselected) > 0){
-	var selectedsurveyname = hd(surveyselected);
-	for (s <-- readysurveys)
-  	where (s.name == selectedsurveyname)
+    var selectedsurveyid = hd(surveyselected);
+    for (s <-- readysurveys)
+    where (s.id == stringToInt(selectedsurveyid))
     [("id"=s.id, "name"=s.name, "textareasno"=s.textareasno)]
     }
     else
@@ -322,9 +305,9 @@ fun getRespondent(respondentselected, selsurveyId)
 {
 	if (length(respondentselected) > 0)
 	{
-	var selectedrespondentname = hd(respondentselected);
+	var selectedrespondentid = hd(respondentselected);
 	for (r <-- readyrespondents)
-  	where (r.name == selectedrespondentname && r.surveyid == selsurveyId)
+  	where (r.id == stringToInt(selectedrespondentid) && r.surveyid == selsurveyId)
     [("id"=r.id, "surveyid"=r.surveyid, "name"=r.name)]
 	}
 	else
@@ -368,8 +351,6 @@ fun prepareCheckboxes(surveyId, respondentId)
     
     if(surveyId <> 0)
     {
-    #pobieramy pytania dla danego surveya do zmiennej
-    #potem forem po pytaniach pobieramy odpowiedzi i tworzymy odpowiednia tablice wyjsciowa
     var cbQuestions = getCbQuestions(surveyId);
     var outArray = for (singleQuestion <- cbQuestions)
     {
@@ -387,8 +368,8 @@ fun prepareCheckboxes(surveyId, respondentId)
 fun main() {
 
 var env = environment();
-var srvopt = for ((x,y) <- env) where (x == "surveyName") [y];
-var rspndntopt = for ((x,y) <- env) where (x == "respondentName") [y];
+var srvopt = for ((x,y) <- env) where (x == "surveyId") [y]; 
+var rspndntopt = for ((x,y) <- env) where (x == "respondentId") [y];
 var srvnLst = getSurvey(srvopt);
 var selectedsrv = if (length(srvnLst) > 0)
  {
@@ -442,7 +423,7 @@ page
  <body bgcolor="#ffffff">    
 
  <h1>Welcome to the single survey editor of the SurveyBuilder application !</h1>
- <p>Please provide a proper both survey name and respondent name as an HTML parameters. To do that you should have in your URL something like that: "survey-edit.links?surveyName=<em>yourSurveyName</em>&amp;respondentName=<em>yourRespondentName</em>".</p>
+ <p>Please provide a proper both survey ID and respondent ID as an HTML parameters. To do that you should have in your URL something like that: "survey-edit.links?surveyId=<em>yourSurveyId</em>&amp;respondentId=<em>yourRespondentId</em>".</p>
  <p> If you don't know what I'm talking about, then you haven't been asked to edit this survey.</p>
    
 </body>				  

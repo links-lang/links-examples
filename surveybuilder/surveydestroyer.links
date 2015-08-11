@@ -1,3 +1,7 @@
+# In this file take place all the operations connected with the removal of a single survey and all information with this survey connected from database. At first are being removed respondent answers on the given questions, then the questions themselves are being removed. The next thung to delete are respondents who took part in this survey and finally the entry connected with the indicated survey is removed from surveys table.
+
+
+# Variables used in database operations.
 var db = database "surveybuilder";
 
 var readysurveys =
@@ -60,11 +64,10 @@ var readycheckboxdbentries =
 
 fun getSurvey(surveyselected)
 {
-	
 	if (length(surveyselected) > 0){
-	var selectedsurveyname = hd(surveyselected);
+	var selectedsurveyid = hd(surveyselected);
 	for (s <-- readysurveys)
-  	where (s.name == selectedsurveyname)
+  	where (s.id == stringToInt(selectedsurveyid))
     [("id"=s.id, "name"=s.name, "textareasno"=s.textareasno)]
     }
     else
@@ -116,16 +119,11 @@ fun removeCheckBoxes(surveyId)
 	for (x <-- readycheckboxquestions) where (x.surveyid == surveyId) [x]
 	})
 	{
-		#x.id przekazemy do funkcji
 		deleteCheckBoxesEntry(x.id);
 		delete (y <-- readycheckboxoptions) where (y.questionid == x.id); 
 		[]
 	};
 	delete (p <-- readycheckboxquestions) where (p.surveyid == surveyId); 
-	#readycheckboxquestions
-	#readycheckboxoptions questionid
-	#readycheckboxdbentries optionid
-
 	()
 }
 
@@ -133,7 +131,7 @@ fun removeCheckBoxes(surveyId)
 fun main() {
 
 var env = environment();
-var srvopt = for ((x,y) <- env) where (x == "surveyName") [y]; 
+var srvopt = for ((x,y) <- env) where (x == "surveyId") [y]; 
 var srvnLst = getSurvey(srvopt);
 var selectedsrv = if (length(srvnLst) > 0)
  {
@@ -186,7 +184,7 @@ page
 
 
 
-<p>To remove the survey you need to pass the proper name of this survey. To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
+<p>To remove the survey you need to pass the proper ID of this survey. To go back to the SurveyBuilder survey management system click <a href="surveybuilder.links">here</a>.</p>
 
 
 </body>				  
