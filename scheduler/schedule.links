@@ -1,0 +1,483 @@
+var db = database "simple_scheduler";
+var consts = table "consts" with (item: String, value: Int) from db;
+var eventinfo = table "eventinfo" with (event_id: Int, title: String, sponsor_id: Int, description: String) from db;
+var personinfo = table "personinfo" with (person_id: Int, person_name: String, password: String) from db;
+var joininfo = table "joininfo" with (join_id: Int, event_id: Int, person_id: Int) from db;
+var eventtime = table "eventtime" with (event_id: Int, available_time: String) from db;
+var jointime = table "jointime" with (join_id: Int, available_time: String) from db;
+var blankevent = (title="", name="", desc="", times = [], del = [], year = "", month = "", day = "", hour = "", minute = "", add=false, submit=false); 
+
+fun parse_time(s) {
+    var time = stringToInt(s);
+    var year = time / 100000000;
+    var month = mod(time / 1000000, 100);
+    var day = mod(time / 10000, 100);
+    var hour = mod(time / 100, 100);
+    var minute = mod(time, 100);
+    (time = time, year = year, month = month, day = day, hour = hour, minute = minute)
+}
+
+fun get_const(item) {
+    hd(for (s <-- consts) where (s.item == item) [(val = s.value)]).val
+}
+
+fun set_const(item, val) {
+   update (c <-- consts) where (c.item == item) set (value = val)
+}
+
+fun new_joiner(joindata) {
+    if (joindata.person_name == "")
+	event_page(joindata.event_id)
+    else {
+	var max_join_id = get_const("max_join_id") + 1;
+	set_const("max_join_id", max_join_id);
+	var person = for (p <-- personinfo) where (p.person_name == joindata.person_name) [p];
+	var person_id = 
+	    if (person == []) { 
+		var id = get_const("max_person_id") + 1; 
+		set_const("max_person_id", id);
+		insert personinfo values [(person_id = id, person_name = joindata.person_name, password = "")];
+		id
+	    }
+	    else hd(person).person_id;
+	var temp = for (t <- zip(joindata.available_time, joindata.can_join)) where(second(t))
+		    { insert jointime values [(join_id = max_join_id, available_time = first(t).time)]; [1] };
+	insert joininfo values [(join_id = max_join_id, event_id = joindata.event_id, person_id = person_id)];
+
+	event_page(joindata.event_id)
+    }
+}
+
+fun time_checkbox(n) {
+    if (n == 0)
+	formlet <#></#> yields (can_join = [])
+    else
+	formlet <#>
+	    <td> { checkbox -> ok } </td>
+	    { time_checkbox(n - 1) -> rest }
+	</#>
+	yields (can_join = ok :: rest.can_join)
+}
+
+fun delete_join(jid, eid) {
+  delete (j <-- joininfo) where (j.join_id == jid);
+  delete (jt <-- jointime) where (jt.join_id == jid);
+  event_page(eid)
+}
+
+fun event_page(eid) {
+    var event = hd(for (e <-- eventinfo) where (eid == e.event_id) [e]);
+    var sponsor = hd(for (p <-- personinfo) where (p.person_id == event.sponsor_id) [p]);
+    var raw_time = for (t <-- eventtime) where (t.event_id == event.event_id) orderby(t.available_time) [(time = t.available_time)];
+    fun collect(s, t, f) {
+	switch (s) {
+	    case [] -> f
+	    case x::y::xs -> 
+		if (x.time / 10000 == y.time / 10000)
+		    collect(y::xs, x::t, f)
+		else
+		    collect(y::xs, [], (x::t)::f)
+	    case x::xs -> (x::t)::f
+	}
+    }
+    var time = collect(reverse(for (t <- raw_time) [parse_time(t.time)]), [], []);
+    var joined = for (j <-- joininfo) where (j.event_id == event.event_id) [j];
+    var available = map(fun(x) {(time = for (t <-- jointime) where (t.join_id == x.join_id) [(time = t.available_time)] | x)},
+			    for (j <-joined) for (p <-- personinfo) where (p.person_id == j.person_id)
+				[(join_id = j.join_id | p)]);
+    var login = getCookie("login_id");
+    var join_form = 
+	formlet <#>
+	    <table class="event" border = "1">
+		<tr>
+		    <td rowspan="2"></td> 
+		    {for (t <- time)
+			<td colspan="{intToString(length(t))}">{intToXml(hd(t).day)}.{intToXml(hd(t).month)}.{intToXml(hd(t).year)}</td>}
+		</tr>
+		<tr>
+		    {for (t <- time) for (tt <- t)
+			<td>{intToXml(tt.hour)}:{if (tt.minute < 10) intToXml(0) else stringToXml("")}{intToXml(tt.minute)}</td>}
+		</tr>
+		{for (p <- available)
+		    <tr>
+			<td>
+			  <a l:href="{person_page(p.person_id)}">{stringToXml(p.person_name)}</a>
+			  { if (not (login == "") && (stringToInt(login) == p.person_id || stringToInt(login) == sponsor.person_id))
+			      <a class="delete" l:href="{delete_join(p.join_id, eid)}">delete</a>
+			    else
+			      <#></#>}
+			</td>
+			{for (t <- raw_time)
+			    if (any(fun(x){x.time == t.time}, p.time)) <td class="ok">ok</td> else <td class="no"></td>}
+		    </tr>}
+		<tr>
+		    <td> { input -> name } </td>
+		    { time_checkbox(length(raw_time)) -> cj }
+		</tr>
+	    </table>
+	    <br />
+	    <div class="join">{ submit("Join") }</div>
+	    <br />
+	</#>
+	yields
+	    (event_id = event.event_id, person_name = name, available_time = raw_time, can_join = cj.can_join);
+    gen_page(page <#>
+      <div class = "event">
+	<h3> Title </h3> 
+	<p> {stringToXml(event.title)} </p>
+	<h3> Sponsor</h3>
+	<p> {stringToXml(sponsor.person_name)} </p>
+	<h3> Description </h3>
+	<p> {stringToXml(event.description)} </p>
+	<h3> Time table </h3>
+	{ join_form => new_joiner }
+      </div>
+    </#>)
+}
+
+fun delete_event(vals) {
+  var pid = hd(vals.events).sponsor_id;
+  var tmp = for (ed <- zip(vals.events, vals.del))
+    where (second(ed)) {
+      delete (e <-- eventinfo) where (e.event_id == first(ed).event_id);
+      var temp = for (j <- asList(joininfo))
+	where (j.event_id == first(ed).event_id) {
+	  delete (jt <-- jointime) where (jt.join_id == j.join_id);
+	  []
+	};
+      delete (j <-- joininfo) where (j.event_id == first(ed).event_id);
+      []
+    };
+  person_page(pid)
+}
+
+fun person_form(events, own) {
+  if (events == []) 
+    formlet <#></#> yields (events = [], del = [])
+  else {
+    if (own) {
+      var e = hd(events);
+      formlet <#>
+	<li>
+	  <a l:href="{event_page(e.event_id)}">{stringToXml(e.title)}</a>
+	  { submitButton("del") -> d } 
+	</li>
+	{ person_form(tl(events), own) -> dels }
+      </#> 
+      yields
+	(events = events, del = d::dels.del)
+    }
+    else {
+      formlet <#>
+	{for (e <- events)
+	  <li>
+	    <a l:href="{event_page(e.event_id)}">{stringToXml(e.title)}</a>
+	  </li>}
+      </#> 
+      yields
+	(events = events, del = (for (e <- events) [false]))
+    }
+  }
+}
+
+fun person_page(pid) {
+  var name = get_name_by_person_id(pid);
+  var events = for (e <-- eventinfo) where (pid == e.sponsor_id) [e];
+  var login = getCookie("login_id");
+  var own = if (not (login == "") && pid == stringToInt(login)) true else false;
+
+  gen_page(page <#>
+    <h1 class="title"> Events created by {stringToXml(name)}: </h1>
+    <ul class="plist"> { person_form(events, own) => delete_event } </ul>
+  </#>)
+}
+
+fun time_form(times) {
+    if (times == [])
+	formlet <#></#> yields (del = [])
+    else {
+	var time = hd(times);
+	formlet <#>
+	    {stringToXml(time.day)}.{stringToXml(time.month)}.{stringToXml(time.year)} 
+	    {stringToXml(time.hour)}:{stringToXml((if (stringToInt(time.minute) < 10) "0" else "") ^^ time.minute)}
+	    { submitButton("del") -> del }
+	    <br />
+	    { time_form(tl(times)) -> dels }
+	</#>
+	yields
+	    (del = del::dels.del)
+    }
+}
+
+fun del_time(t, d) {
+    switch (d) {
+	case [] -> []
+	case x::xs ->
+	    if (x) del_time(tl(t), tl(d))
+	    else hd(t)::del_time(tl(t), tl(d))
+    }
+}
+
+fun check_addtime(t) {
+    t.year =~ /^[0-9]+$/ &&
+    t.month =~ /^[0-9]+$/ &&
+    t.day =~ /^[0-9]+$/ &&
+    t.hour =~ /^[0-9]+$/ &&
+    t.minute =~ /^[0-9]+$/ &&
+    stringToInt(t.year) >= 1000 && stringToInt(t.year) <= 9999 &&
+    stringToInt(t.month) >= 1 && stringToInt(t.month) <= 12 &&
+    stringToInt(t.day) >= 1 && stringToInt(t.day) <= 31 &&
+    stringToInt(t.hour) >= 0 && stringToInt(t.hour) < 24 &&
+    stringToInt(t.minute) >= 0 && stringToInt(t.minute) < 60
+}
+
+fun create_event(vals) {
+    var submited = if (vals.submit) {
+	if (vals.title == "" || vals.name == "" || length(vals.times) == 0) false
+	else {
+	    var event_id = add_const("max_event_id");
+	    var person = for (p <-- personinfo) where (p.person_name == vals.name) [p];
+	    var person_id = 
+		if (person == []) { 
+		    var id = add_const("max_person_id"); 
+		    insert personinfo values [(person_id = id, person_name = vals.name, password = "")];
+		    id
+		}
+		else hd(person).person_id;
+	    insert eventinfo values [(event_id = event_id, title = vals.title, sponsor_id = person_id, description = vals.desc)];
+	    var temp = for (t <- vals.times) {
+		var s = t.year ^^ 
+			(if (stringToInt(t.month) < 10) "0" else "") ^^ t.month ^^
+			(if (stringToInt(t.day) < 10) "0" else "") ^^ t.day ^^
+			(if (stringToInt(t.hour) < 10) "0" else "") ^^ t.hour ^^
+			(if (stringToInt(t.minute) < 10) "0" else "") ^^ t.minute;
+		insert eventtime values [(event_id = event_id, available_time = s)];
+		[]
+	    };
+	    true
+	}
+    }
+    else false;
+
+    var vals = if (submited) blankevent else vals;
+    var addtime = (year = vals.year, month = vals.month, day = vals.day, hour = vals.hour, minute = vals.minute);
+    var check = check_addtime(addtime);
+    var times = if (vals.add && check) vals.times ++ [addtime] else del_time(vals.times, vals.del);
+
+    var login = getCookie("login_id");
+
+    var event_form = 
+	formlet <#>
+	    { if (submited) <h2> A new event added successfully</h2> else <#></#> }
+	    <h1> New event: </h1>
+	    <h3> Title: {inputValue(vals.title) -> title} </h3>
+	    <h3> Description: </h3> 
+		{textarea(vals.desc) -> desc}
+	    <br />
+	    <h3> Time: </h3>
+	    <br />
+	    { time_form(times) -> del }
+	    { inputValue(vals.day) -> day }.
+	    { inputValue(vals.month) -> month }.
+	    { inputValue(vals.year) -> year } 	 
+	    { inputValue(vals.hour) -> hour }:
+	    { inputValue(vals.minute) -> minute }
+	    { submitButton("add") -> add }
+	    <br />
+	    { if (vals.add && check == false) <p>illegal time</p> else <#></#> }
+	    <p>day.month.year hour:minute</p>
+	    { submitButton("Create") -> submit }
+	    { if (vals.submit == true && submited == false) <p>create event failed</p> else <#></#> }
+	</#>
+	yields {
+	    var fix = fun(s) { if (not(s =~ /^[0-9]+$/)) s else intToString(stringToInt(s)) };
+
+	    (title = title, 
+	     name = get_name_by_person_id(stringToInt(login)), 
+	     desc = desc, 
+	     times = times, 
+	     del = del.del,
+	     year = fix(year), month = fix(month), day = fix(day), hour = fix(hour), minute = fix(minute),
+	     add = add, 
+	     submit = submit)
+	};
+    gen_page( 
+	if (login == "")
+	  page <h1 class="title"> Please login first </h1>
+	else
+	  page <#> { event_form => create_event } </#>
+    )
+}
+
+fun get_name_by_person_id(id) {
+  var person = for (p <-- personinfo) where (p.person_id == id) [p];
+  if (person == [])
+    ""
+  else
+    hd(person).person_name
+}
+
+fun add_const(s) {
+  var v = get_const(s) + 1;
+  set_const(s, v);
+  v
+}
+
+fun register(vals) {
+
+  var valid = if (vals.submit == true) {
+    if (vals.name == "" || vals.pswd == "") 
+      false
+    else {
+      if ( [] == (for (p <-- personinfo) where (p.person_name == vals.name) [p]) ) {
+	var id = add_const("max_person_id");
+	insert personinfo values [(person_id = id, person_name = vals.name, password = vals.pswd)];
+	true
+      }
+      else false
+    }
+  }
+  else true;
+
+  var form = formlet <#>
+    <h1> Register </h1>
+    <h3> Name: { input -> name } </h3>
+    <h3> Passowrd: { inputPassword -> pswd } </h3>
+    { submitButton("Register") -> submit }
+    { submitButton("Cancel") -> cancel }
+    { if (valid == false) <h4>{stringToXml("register failed")}</h4> else <#></#> }
+  </#>
+  yields 
+    (name = name, pswd = pswd, submit = submit, cancel = cancel);
+
+  if (vals.cancel == true)
+    main()
+  else  gen_page(
+    if (vals.submit == false || valid == false)
+      page <#> { form => register } </#>
+    else  
+      page <h1> Register Successful! </h1>
+  )
+}
+
+fun login(vals) {
+  var id = if (vals.submit == true) {
+    if (vals.name == "" || vals.pswd == "") 
+      0
+    else {
+      var person = for (p <-- personinfo) where (p.person_name == vals.name && p.password == vals.pswd) [p];
+      if (person == [])
+	0
+      else
+	hd(person).person_id
+    }
+  }
+  else 0;
+
+  var form = formlet <#>
+    <h1> Log in </h1>
+    <h3> Name: { input -> name } </h3>
+    <h3> Passowrd: { inputPassword -> pswd } </h3>
+    { submitButton("Login") -> submit }
+    { submitButton("Cancel") -> cancel }
+    { if (vals.submit == true && id == 0) <h4>{stringToXml("login failed")}</h4> else <#></#> }
+  </#>
+  yields 
+    (name = name, pswd = pswd, submit = submit, cancel = cancel);
+
+  if (vals.cancel == true)
+    main()
+  else {
+    if (not (id == 0)) {
+      setCookie("login_id", intToString(id));
+      freshResource();
+      main()
+    }
+    else gen_page( page <#> { form => login } </#> )
+  }
+}
+
+fun logout() {
+  setCookie("login_id", "");
+  freshResource();
+  main()
+}
+
+fun gen_page(content) {
+  var id = getCookie("login_id");
+  var head = if (id == "")
+    <#>
+      <div class="head_button">
+	<p><a l:href="{register((name = "", pswd = "", submit = false, cancel = false))}">Register</a></p>
+      </div>
+      <div class="head_button">
+	<p><a l:href="{login((name = "", pswd = "", submit = false, cancel = false))}">Log in</a></p>
+      </div>
+    </#>
+  else {
+    var pid = stringToInt(id);
+    var name = get_name_by_person_id(pid);
+    <#>
+      <div class="head_button">
+	<p><a l:href="{logout()}"></a>Logout</p>
+      </div>
+      <div class="head_button">
+	<p><a l:href="{person_page(pid)}">{stringToXml(name)}</a></p>
+      </div>
+    </#>
+  };
+page
+    <html>
+    <head>
+      <title>Simple Scheduler</title>
+      <link rel="stylesheet" type="text/css" href="/css/default.css" />
+    </head>
+    <body>
+      <div class="body">
+	<div class="head">
+	  <div class="head_button">
+	    <p><a l:href="{main()}">Home</a></p>
+	  </div>
+	  {head}
+	  <h1>A simple scheduler</h1>    
+	</div>
+	<div class="content">
+	    {|content|}
+	</div>
+	<div>
+	  <div class="foot">
+	    <p>
+	      Author  : Xupeng Li <br /> 
+	      Contact : <a href="mailto:lixupeng@pku.edu.cn">lixupeng@pku.edu.cn</a>
+	    </p>
+	  </div>
+	</div>
+      </div>
+    </body>
+    </html>
+}
+
+fun main() {
+  gen_page(page <#>
+    <h1 class="title">Event List</h1>
+    <table class="events" border="1">
+      <tr> <th>Title</th> <th>Sponsor</th> </tr>
+      {(fun (ls) {
+	  for (l <- ls)
+	    <tr>
+	      <td><a l:href="{event_page(l.event_id)}">{stringToXml(l.title)}</a></td>
+	      <td><a l:href="{person_page(l.person_id)}">{stringToXml(l.name)}</a></td>
+	    </tr>
+	}) (for (e <-- eventinfo) for (p <-- personinfo) where (e.sponsor_id == p.person_id)
+	      [(event_id = e.event_id, person_id = e.sponsor_id, title = e.title, name = p.person_name)]
+      )}
+    </table>
+    <br />
+    <a l:href="{create_event(blankevent)}" class="create_event">Create a new event</a>
+    <br />
+    <br />
+  </#>)
+}
+
+main()
+
