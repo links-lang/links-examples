@@ -37,10 +37,10 @@
 8) sugartypes.ml
         定义了语法树的各种结点类型
         
-16) types.ml   
+9) types.ml   
         看起来是定义了更一般的数据类型, 这个在语法树之外的中间代码和求值中也能用. 除此之外还有大量代码,看不懂
         
-8) frontend.ml
+10) frontend.ml
         定义了编译器前端的流水线顺序, 有交互模式和运行程序模式之分
         对语法树进行各种检查和变换, 主要是desugar
         涉及的文件有:
@@ -61,32 +61,32 @@
                 desugarPages.ml
                 desugarFuns.ml
                               
-9) sugartoir.ml ir.ml var.ml
+11) sugartoir.ml ir.ml var.ml
         生成中间代码表示, 具体看不懂
         
-11) evalir.ml
+12) evalir.ml
         对中间带码求值, 包括对数据库的访问
         
-15) query.ml
+13) query.ml
         实现了了从links到SQL的翻译工作
         
-17) value.ml
+14) value.ml
         定义了具体的求值方法以及数据库接口
         
-14) database.ml
+15) database.ml
         定义了对数据库操作的求值
         
-12) webif.ml
+16) webif.ml
         当检测到web模式时, 将会调用serve_request来运行links程序,而不是run_file
         webif.ml会通过识别请求的类型决定程序运行在服务器端还是客户端
         并选择对程序求值执行逻辑更新数据库或者生成javascript返回客户端
         
-20) cgi.ml
+17) cgi.ml
         网络接口
         
-13) irtojs.ml
+18) irtojs.ml
         将中间表示翻译成javascript
 
-21) lib.ml
+19) lib.ml
         定义了links程序的基本env, 其中有基本运算符和标准库函数
         还定义了一些基本工具函数
