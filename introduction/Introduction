@@ -1,0 +1,171 @@
+A brief introduction to Links source code
+-------------------------------------------------------------------------------------------
+
+Everything starts at the bottom of [links.ml]:
+        let _ =  
+        (* parse common cmdline arguments and settings *)
+          begin match Utility.getenv "REQUEST_METHOD" with 
+            | Some _ -> Settings.set_value web_mode true
+            | None -> ()
+          end;
+
+          config_file := (try Some (Unix.getenv "LINKS_CONFIG") with _ -> !config_file);
+
+          Errors.display_fatal_l (lazy 
+             (parse_cmdline options (fun i -> push_back i file_list)));
+
+          (match !config_file with None -> () 
+             | Some file -> Settings.load_file file);
+          
+          if Settings.get_value cache_whole_program
+          then whole_program_caching_main ()
+          else old_main()
+        ;;
+It uses the environment variable 'REQUEST_METHOD' to detects if program runs at web mode.
+        Utility.getenv is defined in [utility.ml] which includes various utility functions used in the compiler.
+        Settings.set_value is defined in [settings.ml] which implements a data structure to store settings and paramenters  during compilng and running programs.
+        [basicsettings.ml] includes some definitions of basic settings just as its name.
+        [errors.ml] includes some common way to handle errors. It also includes the function to format the error message with standard style or html style.
+Then it looks up if there exists a user configure file, parses the command line and loads the configure file if it exists.
+        parse_cmdline is defined in [getopt.ml] which implements the function to parse command line.
+        options is a global variable in links.ml. It saves the command line options.
+Then it checks setting 'cache_whole_program' to determine whether runs the program originally or runs it with caching.
+
+whole_program_caching_main() is usually used in web mode as the comment said. 
+We focus on old_main(). 
+There are three ways to run links code: 
+        * use command 'links -e some_expr' 
+        * in interactive mode
+        * run program in files
+These correspond to the codes in old_main():
+        *  let () = Utility.for_each !to_evaluate (evaluate_string_in envs) in
+        *  if Settings.get_value interacting then
+              let () = print_endline (Settings.get_value welcome_note) in
+                interact envs
+        * let () = Utility.for_each !file_list (run_file prelude envs) in
+We focus on the third one. run_file is defined in links.ml: 
+        let run_file prelude envs filename =
+          Settings.set_value interacting false;
+          let parse_and_desugar (nenv, tyenv) filename =
+            let (nenv, tyenv), (globals, (locals, main), t) =
+              Errors.display_fatal (Loader.load_file (nenv, tyenv)) filename
+            in
+              ((globals @ locals, main), t), (nenv, tyenv)
+          in
+            if Settings.get_value web_mode then
+               Webif.serve_request envs prelude filename
+            else 
+              ignore (evaluate parse_and_desugar envs filename)
+Here are two modes, standard and web. Each mode has its own entrance:
+        * web mode: Webif.serve_request envs prelude filename
+        * standard mode: evaluate parse_and_desugar envs filename
+We talk about web mode later. In standard mode, there are two steps: parse_and_desugar and evaluate.
+parse_and_desugar belongs to the front-end of compiler, and evaluate belongs to the back-end.
+Now let's come to [loader.ml]. Loader.load_file is defined here. load_file is a wrapper function of read_file_source with cache.
+In read_file_source: 
+        let read_file_source (nenv, tyenv) (filename:string) =
+          let sugar, pos_context =
+            Parse.parse_file Parse.program filename  in
+          let program, t, tenv = Frontend.Pipeline.program tyenv pos_context sugar in
+          let globals, main, nenv = 
+            Sugartoir.desugar_program 
+              (nenv, 
+               Var.varify_env (nenv, tyenv.Types.var_env), 
+               tyenv.Types.effect_row) program 
+          in
+          (nenv, tenv), (globals, main, t)
+we can see each step in compiler's front-end :
+        * Parse.parse_file
+        * Frontend.Pipeline.program
+        * Sugartoir.desugar_program
+Parse.parse_file is defined in [parse.ml]. Its function is lexical analysis and syntax analysis and finally building a syntax tree.
+    jsonlex.mll  lexer.mll  MLLexer.mll  xmlLexer.mll
+    jsonparse.mly  MLParser.mly  parser.mly  xmlParser.mly
+These related files are source codes of ocamllex and ocamlyacc. ocamllex and ocamlyacc are tools of lexer and parser generator.
+
+Frontend.Pipeline.program is in the file [frontend.ml]:
+          let program =
+            fun tyenv pos_context program ->
+              let program = (ResolvePositions.resolve_positions pos_context)#program program in
+                CheckXmlQuasiquotes.checker#program program;
+                (   DesugarLAttributes.desugar_lattributes#program
+                ->- RefineBindings.refine_bindings#program
+                ->- DesugarDatatypes.program tyenv.Types.tycon_env
+                ->- TypeSugar.Check.program tyenv
+                ->- after_typing ((FixTypeAbstractions.fix_type_abstractions tyenv)#program ->- snd3)
+                ->- after_typing ((DesugarCP.desugar_cp tyenv)#program ->- snd3)
+                ->- after_typing ((DesugarInners.desugar_inners tyenv)#program ->- snd3)
+                ->- after_typing ((DesugarProcesses.desugar_processes tyenv)#program ->- snd3)
+                ->- after_typing ((DesugarDbs.desugar_dbs tyenv)#program ->- snd3)
+                ->- after_typing ((DesugarFors.desugar_fors tyenv)#program ->- snd3)
+                ->- after_typing ((DesugarRegexes.desugar_regexes tyenv)#program ->- snd3)
+                ->- after_typing ((DesugarFormlets.desugar_formlets tyenv)#program ->- snd3)
+                ->- after_typing ((DesugarPages.desugar_pages tyenv)#program ->- snd3)
+                ->- after_typing ((DesugarFuns.desugar_funs tyenv)#program ->- snd3))
+                  program
+We can see each step here: resolve positions, check xml, refine bindings and lots of desugars.
+Some related files: 
+         resolvePositions.ml, checkXmlQuasiquotes.ml, desugarLAttributes.ml, refineBindings.ml, desugarDatatypes.ml, typeSugar.ml
+         fixTypeAbstractions.ml, desugarCP.ml, desugarInners.ml, desugarProcesses.ml, desugarDbs.ml, desugarFors.ml, desugarRegexes.ml
+         desugarFormlets.ml, desugarPages.ml, desugarFuns.ml
+These steps are all check or transformation of syntax tree (I guess).
+Finally we comes to Sugartoir.desugar_program in [sugartoir.ml] which translates syntax tree to intermediate representation.
+[sugartypes.ml] and [types.ml] include type definitions of syntax tree and intermediate representation.
+[ir.ml] includes definitions of intermediate representation and implements some important functions such as eliminate dead functions and value bindings.
+
+The above-mentioned parts belongs to the front-end of the compiler.
+Then the back-end, evaluate in links.ml. evaluate calls process_program. process_program do some optimization and finally calls Evalir.run_program.
+[evalir.ml] is the main file of the compiler's back-end. run_program and run_defs are its main interfaces.
+[value.ml] is related to evalir.ml. It implements the functions of computing and evalir.ml calls them.
+Let's see some details about database in evalir.ml:
+        | `Query (range, e, _t) ->
+                ...........................
+                Database.execute_select fields q db
+        | `Update ((xb, source), where, body) ->
+                ...........................
+                let update_query =
+                        Query.compile_update db env ((Var.var_of_binder xb, table, field_types), where, body) in
+                      let () = ignore (Database.execute_command update_query db) in
+                        apply_cont cont env (`Record [])
+Query.compile_update is in [query.ml]. query.ml implements the functions of translating links codes to SQL codes.
+Database.excute_command is in [database.ml]. database.ml includes interfaces to database.
+The function of connecting to database is db_connect in value.ml which used in 
+        | `Database v                 -> apply_cont cont env (`Database (db_connect (value env v)))
+in evalir.ml.
+[pg_database.ml], [mysql_database.ml], [lite_database.ml], [lite3_database.ml] are all drivers of specific database inherited from Value.database.
+
+At last let's see [webif.ml].
+If links runs in web mode, links.ml will call 
+        Webif.serve_request envs prelude filename 
+to respond the request.
+Just as run_file in links.ml, serve_request loads the file, compile it to intermediate representation and run it.
+Something different in serve_request_program which is used to run a program.
+It calls perform_request and perform_request runs in different ways based on cgi_args.
+I think this is the most common way:
+            | EvalMain ->
+                Debug.print("Doing EvalMain");
+                ("text/html",
+                 if is_client_program (globals @ locals, main) then
+                   let program = (globals @ locals, main) in
+                     Debug.print "Running client program.";
+	           let closures = Value.get_closures valenv in
+	             lazy (
+	             Irtojs.generate_program_page
+                       ~cgi_env:cgi_args
+                       (closures, Lib.nenv, Lib.typing_env)
+                       program
+	             ) <|measure_as|> "irtojs"
+                 else
+                   let program = locals, main in
+                     (* wrap_with_render_page (nenv, tyenv) (locals, main) in*)
+                     Debug.print "Running server program";
+                     let _env, v = Evalir.run_program valenv program in
+                       Value.string_of_value v)
+It either calls Irtojs.generate_program_page to generate javascript code from intermediate representation 
+or calls Evalir.run_program to  use database or do some logic check.
+We can also see
+        Lib.print_http_response [("Content-type", content_type)] content
+in serve_request_program, the way to print the response.
+Some related files: [cgi.ml], [lib.ml].
+Here's a definition of env in lib.ml. It includes some basic operators and standard library.
+

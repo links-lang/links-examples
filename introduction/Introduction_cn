@@ -1,0 +1,92 @@
+这篇文档简单介绍了links源代码的主要部分及其功能.
+
+1) links.ml
+        links.ml 文件中最底部的 let _ = ...... 部分是links程序的入口,
+        它探测了程序是否在web模式下运行, 解析了命令行参数, 编译并执行links程序
+        links通过检测是否设置了环境变量"REQUEST_MOTHOD"来确定是否是web模式
+        解析命令行参数, 将选项保存在options中, 将待执行代码保存在file_list中, 两者均为全局变量
+        最后调用old_main()或whole_program_caching_main()开始编译执行        
+        
+2) settings.ml
+        settings.ml 实现了一个用于保存各种编译器参数的容器, 还包括了解析配置文件的方法
+        代码中随处可见类似于Settings.set_value/get_value 的动作.
+
+3) basicsettings.ml
+        basicsettings.ml 中定义了多种基本的编译器参数, 以及它们的默认值
+        
+4) errors.ml
+        errors.ml 中定义了处理异常的基本方法, 即截获异常并将它们打印出来.
+        它还定义了打印异常的格式, 有两种方法: 普通格式和html格式.
+        display, display_fatal, display_fatal_l是常用接口, 它们的参数是代码,
+        功能是运行代码并截获它的异常
+        
+5) getopt.ml
+        getopt.ml 的功能是解析命令行参数
+        
+6) loader.ml
+        读取links程序文件, 解析程序, 生成中间代码表示
+        read_file_source是读取文件并解析的函数
+        load_file包装了read_file_source, 加入了缓存功能
+        
+7) parse.ml 
+    jsonlex.mll  lexer.mll  MLLexer.mll  xmlLexer.mll
+    jsonparse.mly  MLParser.mly  parser.mly  xmlParser.mly
+        词法分析和语法分析, 利用ocamllex和ocamlyacc自动生成词法语法分析器
+        生成语法树
+
+8) sugartypes.ml
+        定义了语法树的各种结点类型
+        
+16) types.ml   
+        看起来是定义了更一般的数据类型, 这个在语法树之外的中间代码和求值中也能用. 除此之外还有大量代码,看不懂
+        
+8) frontend.ml
+        定义了编译器前端的流水线顺序, 有交互模式和运行程序模式之分
+        对语法树进行各种检查和变换, 主要是desugar
+        涉及的文件有:
+                resolvePositions.ml
+                checkXmlQuasiquotes.ml
+                desugarLAttributes.ml
+                refineBindings.ml
+                desugarDatatypes.ml
+                typeSugar.ml
+                fixTypeAbstractions.ml
+                desugarCP.ml
+                desugarInners.ml
+                desugarProcesses.ml
+                desugarDbs.ml
+                desugarFors.ml
+                desugarRegexes.ml
+                desugarFormlets.ml
+                desugarPages.ml
+                desugarFuns.ml
+                              
+9) sugartoir.ml ir.ml var.ml
+        生成中间代码表示, 具体看不懂
+        
+11) evalir.ml
+        对中间带码求值, 包括对数据库的访问
+        
+15) query.ml
+        实现了了从links到SQL的翻译工作
+        
+17) value.ml
+        定义了具体的求值方法以及数据库接口
+        
+14) database.ml
+        定义了对数据库操作的求值
+        
+12) webif.ml
+        当检测到web模式时, 将会调用serve_request来运行links程序,而不是run_file
+        webif.ml会通过识别请求的类型决定程序运行在服务器端还是客户端
+        并选择对程序求值执行逻辑更新数据库或者生成javascript返回客户端
+        
+20) cgi.ml
+        网络接口
+        
+13) irtojs.ml
+        将中间表示翻译成javascript
+
+21) lib.ml
+        定义了links程序的基本env, 其中有基本运算符和标准库函数
+        还定义了一些基本工具函数
