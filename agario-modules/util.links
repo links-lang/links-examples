@@ -88,7 +88,7 @@ module Colour {
                                       case "13" -> "D"
                                       case "14" -> "E"
                                       case "15" -> "F"
-                                      case x -> x}}, 
+                                      case x -> x}},
                            lsMap(itos, hex));
       lsHead(hex_str) ^^ lsHead(lsTail(hex_str))
   }

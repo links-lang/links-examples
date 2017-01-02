@@ -10,7 +10,7 @@ fun highest_mass_player(max_mass_player, dict) {
     switch (lsEmpty(dict)) {
         case true -> max_mass_player
         case false -> {
-            var curr_player = lsHead(dict).2; 
+            var curr_player = lsHead(dict).2;
             if (total_player_mass(max_mass_player) > total_player_mass(curr_player))
                 highest_mass_player(max_mass_player, lsTail(dict))
             else
@@ -59,7 +59,7 @@ typename InitiateGame = [&| Start: ?String.!GameState.End |&];
 fun random_colour_player(s: Float, v: Float) {
     var grc = 0.618033988749895;
     var gr = (random() +. grc);
-    var h = if (gr > 1.0) gr -. 1.0 else gr; 
+    var h = if (gr > 1.0) gr -. 1.0 else gr;
     (random_colour(h, s -. 0.2, v +. 0.2), random_colour(h, s, v))
 }
 
@@ -295,7 +295,7 @@ fun update_players(player_id, player: PlayerState, players) {
                     var other_player_p = (name=other_player.name, colour=other_player.colour,
                                           blobs=other_player_blobs_p): PlayerState;
                     (next_blob, lsCons((lsHead(players).1, other_player_p), next_players))
-                } else 
+                } else
                     update_curr_blob(blob, lsTail(players))
             }
         }

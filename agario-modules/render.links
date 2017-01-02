@@ -15,7 +15,7 @@ fun swap_buffers(main_canvas_node, disp_canvas_node) {
 fun draw(player_id, state: GameState) {
 
     # double buffering: swap the canvases' display attribute
-    var (main_canvas, disp_canvas) = 
+    var (main_canvas, disp_canvas) =
         if (domGetStyleAttrFromRef(getNodeById(canvas1), "display") == "none")
             (canvas1, canvas2)
         else
@@ -146,4 +146,3 @@ fun draw(player_id, state: GameState) {
 
     ()
 }
-

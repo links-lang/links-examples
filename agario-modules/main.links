@@ -44,13 +44,13 @@ fun get_initial_game_state(s, name) {
     <| Start s.s[name].s(state).{state} |>
 }
 
-fun initialize(player_name) client { 
-    replaceNode(<div id="container" tabindex="1"> 
+fun initialize(player_name) client {
+    replaceNode(<div id="container" tabindex="1">
                     <canvas id="{canvas1}" height="{itos(screenHeight)}" width="{itos(screenWidth)}"/>
-                    <canvas id="{canvas2}" height="{itos(screenHeight)}" width="{itos(screenWidth)}"/> 
+                    <canvas id="{canvas2}" height="{itos(screenHeight)}" width="{itos(screenWidth)}"/>
                 </div>,
                 getNodeById("container"));
-    
+
     var game_state_i = get_initial_game_state(knife(initial_game_state), player_name);
     var _ = spawn { playing(game_state_i)};
 
@@ -62,7 +62,7 @@ fun initialize(player_name) client {
                     if (in_game) {
                         var (cp: (~Game)) = request(game_access_point);
                         <| Move cp.cp[player_id].
-                                   cp[ Cursor(ftoi(itof(screenWidth) *. random()), 
+                                   cp[ Cursor(ftoi(itof(screenWidth) *. random()),
                                               ftoi(itof(screenHeight) *. random())): Input].
                                    cp(in_game).cp(new_game_state).{ (other_play(player_id, new_game_state, in_game)) } |>
                     } else
@@ -88,7 +88,7 @@ fun initialize(player_name) client {
             var (s: Client) = accept(client_access_point);
             <| offer s {
                 case InputMsg -> s(player_id).s(input).
-                    Move c.c[player_id].c[input].c(in_game).c(new_game_state).{ if(in_game) draw(player_id, new_game_state) else (); 
+                    Move c.c[player_id].c[input].c(in_game).c(new_game_state).{ if(in_game) draw(player_id, new_game_state) else ();
                                                                                (play(new_game_state, player_count))}
                 case NewPlayer -> s(name).s[player_count+1].s[game_state].
                     AddPlayer c.c[player_count+1].c[name].c(new_game_state).{ (play(new_game_state, player_count+1)) }
@@ -97,13 +97,13 @@ fun initialize(player_name) client {
 
         play(game_state_i, 1)
     };
-    
+
     fun master_loop() {
         var start_time = getTime(event);
         fun game_loop(prev_time: Int) {
             var curr_time = getTime(event);
             if (curr_time - prev_time > 30) {
-                var cursor = 
+                var cursor =
                     switch ((get_int("cursor_x"), get_int("cursor_y"))) {
                         case (Just(x), Just(y)) -> Cursor(x, y)
                         case (Nothing, Nothing) -> Cursor(gameWidth/2, gameHeight/2)
