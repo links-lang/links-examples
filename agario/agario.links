@@ -612,11 +612,8 @@ fun on_mousemove(e) {
 }
 
 ####
-var game_access_point = new();
-var client_access_point = new();
-
-fun playing(game_state) {
-    var (s: (Game)) = accept(game_access_point);
+fun playing(ap, game_state) {
+    var (s: (Game)) = accept(ap);
     <| offer s {
         case Move -> {
             var (player_id, s) = receive(s);
@@ -624,7 +621,7 @@ fun playing(game_state) {
             var game_state_new = update_logic(game_state, player_id, input);
             var in_game = if (isJust(lsDictLookup(player_id, game_state.players))) true else false;
             ignore(send(game_state_new, (send(true, s))));
-            playing(game_state_new)
+            playing(ap, game_state_new)
         }
         case AddPlayer -> {
             var (player_id, s) = receive(s);
@@ -634,7 +631,7 @@ fun playing(game_state) {
             var game_state_new = (screen=game_state.screen, food=game_state.food,
                                   players=lsDictAdd(player_id, new_player_state, game_state.players));
             ignore(send(game_state_new, s));
-            playing(game_state_new)
+            playing(ap, game_state_new)
         }
     } |>
 }
@@ -645,6 +642,9 @@ fun get_initial_game_state(s, name) {
 }
 
 fun initialize(player_name) client {
+    var game_access_point = new();
+    var client_access_point = new();
+
     replaceNode(<div id="container" tabindex="1">
                     <canvas id="{canvas1}" height="{itos(screenHeight)}" width="{itos(screenWidth)}"/>
                     <canvas id="{canvas2}" height="{itos(screenHeight)}" width="{itos(screenWidth)}"/>
@@ -652,7 +652,7 @@ fun initialize(player_name) client {
                 getNodeById("container"));
 
     var game_state_i = get_initial_game_state(knife(initial_game_state), player_name);
-    var _ = spawn { playing(game_state_i)};
+    var _ = spawn { playing(game_access_point, game_state_i)};
 
     fun on_key_down(e) {
         if (getCharCode(e) == 81) {  #that's Q
@@ -723,7 +723,7 @@ fun initialize(player_name) client {
     ()
 }
 
-fun main() {
+fun mainPage(_) {
     page
         <html>
             <head>
@@ -770,6 +770,11 @@ fun main() {
 
             </body>
         </html>
+}
+
+fun main() {
+  addRoute("/", mainPage);
+  servePages()
 }
 
 main()
