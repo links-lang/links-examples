@@ -651,7 +651,7 @@ fun initialize(player_name) client {
                 </div>,
                 getNodeById("container"));
 
-    var game_state_i = get_initial_game_state(knife(initial_game_state), player_name);
+    var game_state_i = get_initial_game_state(fork(initial_game_state), player_name);
     var _ = spawn { playing(game_access_point, game_state_i)};
 
     fun on_key_down(e) {
