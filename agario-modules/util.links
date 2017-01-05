@@ -77,6 +77,7 @@ module Conversions {
 
 module Colour {
   open Lists
+  open Conversions
 
   fun dec_to_hex(d: Int) {
       # only works for 2-digit hex numbers
