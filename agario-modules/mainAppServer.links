@@ -122,7 +122,7 @@ fun initialize(player_name) client {
     ()
 }
 
-fun mainPage(_) {
+fun mainPage(_, _) {
     page
         <html>
             <head>
