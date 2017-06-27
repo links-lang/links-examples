@@ -1,0 +1,80 @@
+
+
+var header =
+	<#>
+		<head>
+			<meta charset="utf-8" />
+			<meta name="viewport" content="width=device-width, initial-scale=1" />
+			<link rel="stylesheet" href="/bootstrap/css/bootstrap.min.css" />
+			<link rel="stylesheet" href="/bootstrap/css/bootstrap-theme.min.css" />
+			<link rel="stylesheet" href="/css/theme.css" />
+			<script src="/bootstrap/js/bootstrap.min.js">/* test */</script>
+		</head>
+	</#>;
+
+var inputValue = fun (v) {
+	inputValueA(v, [("class", "form-control"), ("type", "text")])
+};
+
+var inputValueCol = fun (v, n) {
+	var class = "col-lg-" ^^ intToString(n);
+	formlet
+		<#>
+			<div class="{class}">
+				{ inputValue(v) -> v }
+			</div>
+		</#>
+		yields v
+};
+
+var inputIntValue = fun (v, n) {
+	transform(inputValue(intToString(v)), isInt, fun (s) {s ^^ " is not an integer"}, stringToInt)
+};
+
+var inputIntValueCol = fun (v, n) {
+	transform(inputValueCol(intToString(v),n), isInt, fun (s) {s ^^ " is not an integer"}, stringToInt)
+};
+
+var inputFloatValueCol = fun (v, n) {
+	transform(inputValueCol(floatToString(v),n), isFloat, fun (s) {s ^^ " is not a float"}, stringToFloat)
+};
+
+fun addRoutes () {
+   addStaticRoute("/bootstrap/", "bootstrap/", [("css", "text/css"),("js", "text/javascript")]);
+	addStaticRoute("/css/", "css/", [("css", "text/css")])
+}
+
+fun bootstrapPage (body) {
+	page
+	<html>
+		{header}
+		<body>
+			{body}
+		</body>
+	</html>
+}
+
+sig buttonA : (Attributes, Xml) ~> Formlet (Bool)
+fun buttonA(attributes, content) {
+  nextName >>= fun (name) {
+    var xml = <button name="{name}" value="here" {removeAssoc("name", attributes)}>{content}</button>;
+    return ((xml,
+             fun (env) { (xml, pureE (memassoc(name, env))) }))
+  }
+}
+
+fun buttonDefaultA(attributes, content) {
+	buttonA(("class", "btn btn-default")::attributes, content)
+}
+
+fun submitButtonDefaultA(attributes, content) {
+	buttonDefaultA(("type", "submit")::attributes, content)
+}
+
+fun submitButtonDefaultTextA(attributes, content) {
+	submitButtonDefaultA(("class", "btn btn-default")::attributes, stringToXml(content))
+}
+
+fun submitButtonDefaultText(content) {
+	submitButtonDefaultTextA([], content)
+}

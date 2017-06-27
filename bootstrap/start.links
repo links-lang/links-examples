@@ -1,0 +1,16 @@
+open Welcome
+open DepartmentMembers
+open SchedulingAssistants
+
+fun main() {
+	addRoute("/", Welcome.mainPage);
+	addRoute("/departments/4", DepartmentMembers.mainPage);
+	addRoute("/jobs/scheduling_assistants", SchedulingAssistants.mainPage);
+	
+	Bootstrap.addRoutes();
+
+	servePages()
+}
+
+main()
+

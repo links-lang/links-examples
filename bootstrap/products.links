@@ -1,0 +1,127 @@
+open Bootstrap
+open Common
+
+
+var db = database "dellstore" "postgresql" "localhost:5432:links:links";
+
+var categoriesTable =
+	table "categories"
+	with (category: Int, categoryname: String)
+	tablekeys [["category"]]
+	from db;
+
+var productsTable =
+   table "products"
+   with (prod_id: Int, category: Int, title: String, actor: String, price: Float, special: Int, common_prod_id: Int)
+   tablekeys [["prod_id"]]
+   from db;
+
+fun getProductsLens () server {
+	var productsLens = lens productsTable tablekeys (prod_id);
+	var categoriesLens = lens categoriesTable tablekeys (category);
+	var prodCategoriesLens = lensjoin productsLens with categoriesLens on category;
+
+	var filterLens = lensselect from prodCategoriesLens where actor == "CHEVY FOSTER";
+	filterLens
+}
+
+fun getProducts () server {
+	var filterLens = getProductsLens();
+	get filterLens
+}
+
+fun blank (a) {
+	page
+		<html>
+			<body>submitted</body>
+		</html>
+}
+
+fun mainPage(_,_) {
+	var products = getProducts();
+
+	var entryFormlet = fun (prod) {
+		formlet <#>
+			<div class="well well-sm">
+				<div class="row">
+					<div class="col-lg-3">
+						<div class="input-group">
+							<span class="input-group-addon" id="basic-addon1">{intToXml(prod.prod_id)}</span>
+							{ Bootstrap.inputValue(prod.title) -> title }
+						</div>
+					</div>
+					{ Bootstrap.inputIntValueCol(prod.category , 1) -> category }
+					{ Bootstrap.inputValueCol(prod.categoryname , 2) -> category }
+					{ Bootstrap.inputValueCol(prod.actor, 2) -> actor }
+					{ Bootstrap.inputFloatValueCol(prod.price, 1) -> price }
+					{ Bootstrap.inputIntValueCol(prod.special, 1) -> special }
+					{ Bootstrap.inputIntValueCol(prod.common_prod_id, 1) -> common_prod_id }
+				</div>
+			</div>
+		</#>
+		yields (title = title, actor = actor)
+	};
+
+	var entryFormlets = 
+		formlet <#>
+			<div>
+				<div class="well well-sm">
+					<div class="row">
+						<div class="col-lg-3">
+							Title	
+						</div>
+						<div class="col-lg-1">
+							Category	
+						</div>
+						<div class="col-lg-2">
+							National Id
+						</div>
+						<div class="col-lg-1">
+							Shift Id
+						</div>
+						<div class="col-lg-1">
+							Active
+						</div>
+						<div class="col-lg-1">
+							Vacation
+						</div>
+						<div class="col-lg-1">
+							Sickleave
+						</div>					
+					</div>
+				</div>
+			<div>
+				{ formlets(map(prodFormlet, products)) -> products}
+			</div>
+			<div>
+				<button type="submit" class="btn btn-default">Save</button>
+			</div>
+		</#>
+		yields products;
+
+	page
+		<html>
+			{ Bootstrap.header }
+			<body>
+				{ Common.navBar("/products") }
+				<div class="container main">
+					<h1>Products</h1>
+
+					<div>
+					{ entryFormlets => blank with multipart	}
+					</div>
+				</div>
+			</body>
+		</html>
+}
+
+fun main() {
+	addRoute("/", mainPage);
+	addStaticRoute("/test", "test/", [("html", "text/html")]);
+
+	Bootstrap.addRoutes();
+
+	servePages()
+}
+
+main()

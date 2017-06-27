@@ -1,0 +1,161 @@
+open Bootstrap
+open Common
+
+
+var dummyData = [
+	(active=0,departmentid=4,employeeid=250,jobtitle="Purchasing Manager",loginid="adventure-works\\sheela0",nationalidnumber="895209680",shiftid=1,sickleavehours=44,vacationhours=49), 
+	(active=1,departmentid=4,employeeid=24,jobtitle="Marketing Specialist",loginid="adventure-works\\jill0",nationalidnumber="72636981",shiftid=1,sickleavehours=43,vacationhours=47), 
+	(active=1,departmentid=4,employeeid=23,jobtitle="Marketing Specialist",loginid="adventure-works\\mary0",nationalidnumber="767955365",shiftid=1,sickleavehours=43,vacationhours=46), 
+	(active=1,departmentid=4,employeeid=22,jobtitle="Marketing Specialist",loginid="adventure-works\\sariya0",nationalidnumber="95958330",shiftid=1,sickleavehours=42,vacationhours=45), 
+	(active=1,departmentid=4,employeeid=21,jobtitle="Marketing Specialist",loginid="adventure-works\\terry0",nationalidnumber="243322160",shiftid=1,sickleavehours=42,vacationhours=44), 
+	(active=1,departmentid=4,employeeid=20,jobtitle="Marketing Assistant",loginid="adventure-works\\wanida0",nationalidnumber="323403273",shiftid=1,sickleavehours=40,vacationhours=41), 
+	(active=1,departmentid=4,employeeid=19,jobtitle="Marketing Assistant",loginid="adventure-works\\mary2",nationalidnumber="52541318",shiftid=1,sickleavehours=41,vacationhours=43), 
+	(active=1,departmentid=4,employeeid=18,jobtitle="Marketing Specialist",loginid="adventure-works\\john5",nationalidnumber="222969461",shiftid=1,sickleavehours=44,vacationhours=48),
+	(active=1,departmentid=4,employeeid=17,jobtitle="Marketing Assistant",loginid="adventure-works\\kevin0",nationalidnumber="253022876",shiftid=1,sickleavehours=41,vacationhours=42), 
+	(active=1,departmentid=4,employeeid=16,jobtitle="Marketing Manager",loginid="adventure-works\\david0",nationalidnumber="24756624",shiftid=1,sickleavehours=40,vacationhours=40)
+	];
+
+
+fun entriesPage(entries) {
+	var putback = fun (res) {
+		var entries = filter(fun (entry) {not(entry.del)}, res.entries);
+		var entries = map(fun (entry) {entry.entry}, entries);
+		var entries = if (res.add)
+			res.newentry :: entries
+		else
+			entries;
+
+		entriesPage(entries)
+	};
+
+	var entryFormlet = fun (entry) {
+		formlet <#>
+			<div class="panel panel-default">
+			<div class="panel-body">
+				<div class="row">
+					<div class="col-lg-3">
+						<div class="input-group">
+							<span class="input-group-addon" id="basic-addon1">{intToXml(entry.employeeid)}</span>
+							{ Bootstrap.inputValue(entry.loginid) -> loginid}
+						</div>
+					</div>
+					{ Bootstrap.inputValueCol(entry.nationalidnumber, 2) -> nationalidnumber }
+					
+					{ Bootstrap.inputIntValueCol(entry.shiftid, 1) -> shiftid }
+					{ Bootstrap.inputIntValueCol(entry.active, 1) -> active }
+
+					{ Bootstrap.inputValueCol(entry.jobtitle, 2) -> jobtitle}
+					{ Bootstrap.inputIntValueCol(entry.vacationhours, 1) -> vacationhours}
+					{ Bootstrap.inputIntValueCol(entry.sickleavehours, 1) -> sickleavehours}
+
+					<div class="col-lg-1">
+						{ Bootstrap.submitButtonDefaultA([], <#>
+							<span class="glyphicon glyphicon-remove"></span>
+							</#>) -> del }
+					</div>
+				</div>
+			</div>
+			</div>
+		</#>
+		yields (entry = (employeeid = entry.employeeid, departmentid = entry.departmentid, loginid = loginid, nationalidnumber = nationalidnumber, shiftid = shiftid, active = active, jobtitle = jobtitle, vacationhours = vacationhours, sickleavehours = sickleavehours), del = del)
+	};
+
+	var addFormlet = 
+		formlet <#>
+			<div class="panel panel-default">
+				<div class="panel-heading">Add new entry</div>
+				<div class="panel-body">
+					<div class="row">
+						{ Bootstrap.inputIntValueCol(0, 1) -> employeeid }
+						{ Bootstrap.inputValueCol("", 2) -> loginid }
+
+						{ Bootstrap.inputValueCol("", 2) -> nationalidnumber }
+
+						{ Bootstrap.inputIntValueCol(1, 1) -> shiftid }
+						{ Bootstrap.inputIntValueCol(1, 1) -> active }
+
+						{ Bootstrap.inputValueCol("", 2) -> jobtitle }
+
+						{ Bootstrap.inputIntValueCol(0, 1) -> vacationhours}
+						{ Bootstrap.inputIntValueCol(0, 1) -> sickleavehours}
+
+					</div>
+				</div>
+			</div>
+		</#>
+		yields (employeeid = employeeid, departmentid = 4, loginid = loginid, nationalidnumber = nationalidnumber, shiftid = shiftid, active = active, jobtitle = jobtitle, vacationhours = vacationhours, sickleavehours = sickleavehours);
+
+	var entryFormlets = 
+		formlet <#>
+			<div>
+				<div class="well well-sm">
+					<div class="row">
+						<div class="col-lg-3">
+							Login Id
+						</div>
+						<div class="col-lg-2">
+							National Id
+						</div>
+						<div class="col-lg-1">
+							Shift Id
+						</div>
+						<div class="col-lg-1">
+							Active
+						</div>
+						<div class="col-lg-2">
+							Job Title
+						</div>
+						<div class="col-lg-1">
+							Vacation
+						</div>
+						<div class="col-lg-1">
+							Sickleave
+						</div>					
+					</div>
+				</div>
+			</div>
+			<div>
+				{ formlets(map(entryFormlet, entries)) -> entries}
+			</div>
+			<div>
+				{ addFormlet -> newentry }
+			</div>
+			<div>
+				{ Bootstrap.submitButtonDefaultText("Add") -> add }
+				{ Bootstrap.submitButtonDefaultText("Save") -> save }
+			</div>
+		</#>
+		yields (entries = entries, add = add, save = save, newentry = newentry);
+
+	page
+		<html>
+			{ Bootstrap.header }
+			<body>
+				{ Common.navBar("/departments/4") }
+				<div class="container main">
+					<h1>Department 4 Employees</h1>
+
+					<div>
+					{ entryFormlets => putback with multipart	}
+					</div>
+				</div>
+			</body>
+		</html>
+}
+
+fun mainPage(_,_) {
+	var entries = dummyData;
+
+	entriesPage(entries)
+}
+
+fun main() {
+	addRoute("/", mainPage);
+	addStaticRoute("/test", "test/", [("html", "text/html")]);
+
+	Bootstrap.addRoutes();
+
+	servePages()
+}
+
+main()

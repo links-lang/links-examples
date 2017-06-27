@@ -1,0 +1,31 @@
+open Bootstrap
+open Common
+
+
+fun mainPage(_,_) {
+	page
+		<html>
+			{ Bootstrap.header }
+			<body>
+				{ Common.navBar("/") }
+				<div class="container main">
+					<h1>Bootstrap Example</h1>
+
+					<p>
+						This is an example website demonstrating how to make use of bootstrap. 
+					</p>
+
+					<p>
+						It is an adaption of the example application used for incremental relational lenses, so that it doesn't depend on any database code and uses dummy data instead.
+					</p>
+				</div>
+				<div>
+				</div>
+			</body>
+		</html>
+}
+
+fun main() {
+	addRoute("/", mainPage);
+}
+
