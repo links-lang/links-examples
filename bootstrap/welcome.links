@@ -2,7 +2,7 @@ open Bootstrap
 open Common
 
 
-fun mainPage(_,_) {
+fun mainPage(_) {
 	page
 		<html>
 			{ Bootstrap.header }
