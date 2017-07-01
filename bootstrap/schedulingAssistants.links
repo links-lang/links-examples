@@ -142,7 +142,7 @@ fun entriesPage(entries) {
 		</html>
 }
 
-fun mainPage(_) {
+fun mainPage(_, _) {
 	var entries = dummyEntries;
 	
 	entriesPage(entries)
