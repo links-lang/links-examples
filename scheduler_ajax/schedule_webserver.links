@@ -30,7 +30,6 @@ fun parse_time(s) {
 }
 
 fun get_const(item) server {
-    print("in get_const");
     hd(for (s <-- consts) where (s.item == item) [(val = s.value)]).val
 }
 
@@ -90,7 +89,6 @@ fun new_joiner(joindata) server {
                 insert personinfo values [(person_id = id, person_name = joindata.person_name, password = "")];
                 id
             } else {
-                print("in person thingy");
                 hd(person).person_id
             };
 
@@ -116,7 +114,6 @@ fun delete_join(jid, eid) server {
 
 
 fun get_event_entries(eid) server {
-    print("in get event entries");
     # Firstly, query the DB for the event matching the given event ID
     var event = hd(for (e <-- eventinfo) where (eid == e.event_id) [e]);
     # Secondly, find the person who created the event
