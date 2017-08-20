@@ -1,0 +1,523 @@
+## A stripped-down, Ajax version of the Links event scheduler
+
+## Database Setup
+var db = database "links_scheduler";
+var consts = table "consts" with (item: String, value: Int) from db;
+var eventinfo = table "eventinfo" with (event_id: Int, title: String, sponsor_id: Int, description: String) from db;
+var personinfo = table "personinfo" with (person_id: Int, person_name: String, password: String) from db;
+var joininfo = table "joininfo" with (join_id: Int, event_id: Int, person_id: Int) from db;
+var eventtime = table "eventtime" with (event_id: Int, available_time: String) from db;
+var jointime = table "jointime" with (join_id: Int, available_time: String) from db;
+var blankevent = (title="", name="", desc="", times = [], del = [], year = "", month = "", day = "", hour = "", minute = "", add=false, submit=false); 
+
+
+## Utility Functions
+
+fun add_const(s) server {
+  var v = get_const(s) + 1;
+  set_const(s, v);
+  v
+}
+
+fun parse_time(s) {
+    var time = stringToInt(s);
+    var year = time / 100000000;
+    var month = mod(time / 1000000, 100);
+    var day = mod(time / 10000, 100);
+    var hour = mod(time / 100, 100);
+    var minute = mod(time, 100);
+    (time = time, year = year, month = month, day = day, hour = hour, minute = minute)
+}
+
+fun get_const(item) server {
+    print("in get_const");
+    hd(for (s <-- consts) where (s.item == item) [(val = s.value)]).val
+}
+
+fun set_const(item, val) server {
+   update (c <-- consts) where (c.item == item) set (value = val)
+}
+
+fun check_addtime(t) {
+    t.year =~ /^[0-9]+$/ &&
+    t.month =~ /^[0-9]+$/ &&
+    t.day =~ /^[0-9]+$/ &&
+    t.hour =~ /^[0-9]+$/ &&
+    t.minute =~ /^[0-9]+$/ &&
+    stringToInt(t.year) >= 1000 && stringToInt(t.year) <= 9999 &&
+    stringToInt(t.month) >= 1 && stringToInt(t.month) <= 12 &&
+    stringToInt(t.day) >= 1 && stringToInt(t.day) <= 31 &&
+    stringToInt(t.hour) >= 0 && stringToInt(t.hour) < 24 &&
+    stringToInt(t.minute) >= 0 && stringToInt(t.minute) < 60
+}
+
+
+fun set_name(person_id, new_name) server {
+    update (p <-- personinfo)  where (p.person_id == person_id) set (person_name = new_name)
+}
+
+
+fun update_joiner(person_id, join_id, can_join, new_name, available_time) server {
+    # By the way the table is set up, it's best to delete the old stuff and recreate.
+    # Firstly, delete the previous join times
+    delete (q <-- jointime) where (q.join_id == join_id);
+    # Next, update the name
+    set_name(person_id, new_name);
+    # Finally, add the join times again
+    var temp = for (t <- zip(available_time, can_join)) where(second(t))
+        { insert jointime values [(join_id = join_id, available_time = first(t).time)]; [1] };
+    ()
+}
+
+
+## Database Update Functions
+fun new_joiner(joindata) server {
+    # Joining with no name is a no-op
+    if (joindata.person_name == "") {
+        # event_page(joindata.event_id)
+    } else {
+        # Otherwise...
+        # Firstly get the running ID and increment (this woudld be better as an auto-increment column)
+        var max_join_id = get_const("max_join_id") + 1;
+        set_const("max_join_id", max_join_id);
+        # Check if the person joining the event already exists. If not, create and insert to get
+        # the new ID. If it's already there, use that ID.
+        var person = for (p <-- personinfo) where (p.person_name == joindata.person_name) [p];
+        var person_id = 
+            if (person == []) { 
+                var id = get_const("max_person_id") + 1; 
+                set_const("max_person_id", id);
+                insert personinfo values [(person_id = id, person_name = joindata.person_name, password = "")];
+                id
+            } else {
+                print("in person thingy");
+                hd(person).person_id
+            };
+
+        # Next, zip the available times with whether the user can join, and insert into the DB.
+        # Not sure why temp's here. Do we *actually* need to bind to a variable?
+        # If so, we shouldn't. I'll check it out later.
+        var temp = for (t <- zip(joindata.available_time, joindata.can_join)) where(second(t))
+            { insert jointime values [(join_id = max_join_id, available_time = first(t).time)]; [1] };
+
+        insert joininfo values [(join_id = max_join_id, event_id = joindata.event_id, person_id = person_id)];
+        ()
+
+        # AJAX: won't need to change the page back.
+        # event_page(joindata.event_id)
+    }
+}
+
+
+fun delete_join(jid, eid) server {
+  delete (j <-- joininfo) where (j.join_id == jid);
+  delete (jt <-- jointime) where (jt.join_id == jid);
+}
+
+
+fun get_event_entries(eid) server {
+    print("in get event entries");
+    # Firstly, query the DB for the event matching the given event ID
+    var event = hd(for (e <-- eventinfo) where (eid == e.event_id) [e]);
+    # Secondly, find the person who created the event
+    var sponsor = hd(for (p <-- personinfo) where (p.person_id == event.sponsor_id) [p]);
+    # Thirdly, get and parse the event times from the eventtime table.
+    var raw_time = for (t <-- eventtime) where (t.event_id == event.event_id) orderby(t.available_time) [(time = t.available_time)];
+    # I'm not sure what this does...
+    fun collect(s, t, f) {
+        switch (s) {
+            case [] -> f
+            case x::y::xs -> 
+            if (x.time / 10000 == y.time / 10000) {
+                collect(y::xs, x::t, f)
+            } else {
+                collect(y::xs, [], (x::t)::f)
+            }
+            case x::xs -> (x::t)::f
+        }
+    }
+    var time = collect(reverse(for (t <- raw_time) [parse_time(t.time)]), [], []);
+
+    # Find the joindata (who's joined / when) for the current event
+    var joined = for (j <-- joininfo) where (j.event_id == event.event_id) [j];
+    var available = 
+        map(
+            # ???
+            fun(x) {
+                (time = for (t <-- jointime) where (t.join_id == x.join_id) [(time = t.available_time)] | x)
+            },
+
+            # Apply to all people who have joined the event
+            for (j <- joined)
+                for (p <-- personinfo) where (p.person_id == j.person_id)
+                    [(join_id = j.join_id | p)]
+        );
+
+    (event=event, sponsor=sponsor, raw_time=raw_time, time=time, joined=joined, available=available)
+
+}
+
+fun get_name_by_person_id(id) server {
+  var person = for (p <-- personinfo) where (p.person_id == id) [p];
+  if (person == [])
+    ""
+  else
+    hd(person).person_name
+}
+
+
+## Client stuff
+
+fun join_record(eid, person_name, available_time_list, can_join) {
+    (event_id=eid, person_name=person_name, available_time=available_time_list, can_join=can_join)
+}
+
+fun empty_join_record(eid, available_time_list) {
+    join_record(eid, "", available_time_list, replicate(length(available_time_list), false))
+}
+
+fun update_list(xs, num, new_var) {
+    fun update_list_inner(ys, counter) {
+        switch (ys) {
+            case [] -> []
+            case x::xs ->
+                if (counter == 0) {
+                    new_var::xs
+                } else {
+                    x::(update_list_inner(xs, counter - 1))
+                }
+        }
+    }
+    update_list_inner(xs, num)
+}
+
+fun get_checkbox(checkbox_id, is_edit) {
+    var pref = 
+        if (is_edit == true) { 
+            "edit_"
+        } else { 
+            "check_" 
+        };
+    var name = pref ^^ intToString(checkbox_id);
+    var res = getNodeById(name);
+    res
+}
+
+
+fun is_checked(checkbox_id, is_edit) {
+    var checkbox_dom = get_checkbox(checkbox_id, is_edit);
+    var checked = domGetPropertyFromRef(checkbox_dom, "checked");
+    checked == "true"
+}
+
+fun domValue(id) client {
+  domGetNodeValueFromRef(getNodeById(id))
+}
+
+fun event_dom(eid, handler) {
+    var event_entries = get_event_entries(eid);
+    var event = event_entries.event;
+    var sponsor = event_entries.sponsor;
+    var raw_time = event_entries.raw_time;
+    var time = event_entries.time;
+    var joined = event_entries.joined;
+    var available = event_entries.available;
+
+    fun edit_user(p, raw_time) {
+        var first_time = hd(raw_time).time;
+        var can_make_it = any(fun(x) {x.time == first_time}, p.time);
+        handler!SetEditPerson(p.person_id, p.join_id, p.person_name, can_make_it)
+    }
+
+
+    var login = getCookie("login_id");
+    <div>
+    <div class="row">
+       <table class="table table-striped table-bordered">
+        <tbody>
+               <tr>
+               <td></td>
+                      <td>11AM</td>
+               <td></td>
+               </tr>
+               
+               {for (p <- available)
+                   <tr>
+                       <td>
+                         <a l:onclick="{edit_user(p, raw_time)}">{stringToXml(p.person_name)}</a><br/>
+                       </td>
+                       {for (t <- raw_time)
+                            if (any(fun(x){x.time == t.time}, p.time)) {
+                                <td class="ok"><span class="glyphicon glyphicon-ok"></span></td> 
+                            } else {
+                                <td class="no"><span class="glyphicon glyphicon-remove"></span></td>
+                            }}
+                       <td></td>
+                   </tr>
+               }
+               <tr id="joiner_form">
+                   <td> <input type="text" class="form-control" id="joiner-name" l:onchange="{handler!ChangeName(domValue("joiner-name"))}"/> </td>
+                   {for (i <- intRange(0, length(raw_time) - 1))
+                       <td><input type="checkbox" id="check_{intToString(i)}"
+                            l:onchange="{handler!UpdateCheckbox((i, is_checked(i, false)))}"/>
+                       </td>
+                   }
+                   <td><button class="btn btn-primary btn-lg" l:onclick="{handler!Submit()}">Register</button></td>
+               </tr>
+           </tbody>
+        </table>
+     </div>
+     <div class="row">
+           {edit_form(handler, raw_time)}
+     </div>
+     </div>
+
+
+}
+
+fun redraw(xml, defId) {
+  replaceChildren(xml, getNodeById(defId))
+}
+
+fun redrawEvent(eid, handler_pid) {
+    var event_xml = event_dom(eid, handler_pid);
+    redraw(event_xml, "pagePlaceholder");
+}
+
+fun spawn_handler(eid) {
+
+    var event_entries = get_event_entries(eid);
+    var event = event_entries.event;
+    var sponsor = event_entries.sponsor;
+    var raw_time = event_entries.raw_time;
+    var time = event_entries.time;
+    var joined = event_entries.joined;
+    var available = event_entries.available;
+
+    var login = getCookie("login_id");
+
+
+    # Key idea; we maintain a joindata record, and mutate it as a result of the
+    # events we receive. Finally, the Join() message will submit the record to join,
+    # and we can redraw the page.
+    spawnClient {
+        var edit_pid = spawn_edit_process(eid, raw_time, self());
+
+        fun receiver(joiner_record) {
+            receive {
+                case ChangeName(new_name) ->
+                    var upd = (joiner_record with person_name = new_name);
+                    receiver(upd)
+                case UpdateCheckbox(checkbox_id, checkbox_checked) ->
+                    var new_can_joins = update_list(joiner_record.can_join, checkbox_id, checkbox_checked);
+                    var upd = (joiner_record with can_join=new_can_joins);
+                    receiver(upd)
+                case Submit() ->
+                    new_joiner(joiner_record);
+                    redrawEvent(eid, self());
+                    receiver(empty_join_record(eid, raw_time))
+                case Delete() -> ## Not really necessary, but better for performance
+                    edit_pid!Delete();
+                    receiver(joiner_record)
+                case Cancel() ->
+                    domSetAnchor("");
+                    redrawEvent(eid, self());
+                    receiver(empty_join_record(eid, raw_time)) 
+                case SetEditPerson(person_id, join_id, person_name, can_make_it) ->
+                    edit_pid!SetPerson(person_id, join_id, person_name, can_make_it);
+                    receiver(joiner_record)
+                case SubmitEdit(new_name, can_make_it) ->
+                    edit_pid!SubmitEdit(new_name, can_make_it);
+                    receiver(empty_join_record(eid, raw_time))
+            }
+        }
+
+        receiver(empty_join_record(eid, raw_time))
+    }
+}
+
+fun event_page(eid, handler) {
+    <#>{event_dom(eid, handler)}</#>
+}
+
+fun events_for_sponsor(sponsor_id) server {
+  for (e <-- eventinfo) where (sponsor_id == e.sponsor_id) [e]
+}
+  
+fun gen_page(content) {
+  var head =  <#></#>;
+page
+    <html>
+    <head>
+      <title>SPLS Registration</title>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" />
+       <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css" />
+       <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+    </head>
+    <body>
+    <div class="container">
+        <div class="head">
+          {head}
+          <h1>SPLS Registration</h1>    
+        </div>
+        <div class="content">
+            <div id="pagePlaceholder">
+                {|content|}
+            </div>
+        </div>
+    </div>
+
+  <footer class="footer">
+    <div class="container">
+        <p>
+          Originally written by Xupeng Li (<a href="mailto:lixupeng@pku.edu.cn">lixupeng@pku.edu.cn</a>)
+        </p>
+        <p>
+          Butchered and maintained by Simon Fowler.
+        </p>
+    </div>
+  </footer>
+    </body>
+    </html>
+}
+
+fun submit_edit(handler_proc_id) {
+    var edit_name = domValue("edit-name");
+    var can_make_it = is_checked(0, true);
+    handler_proc_id!SubmitEdit(edit_name, can_make_it)
+}
+
+fun hide_joiner_form() {
+    var joiner_form_dom = getNodeById("joiner_form");
+    ignore(domSetAttributeFromRef(joiner_form_dom, "hidden", ""))
+}
+
+
+# fun update_joiner(person_id, join_id, can_join, new_name, available_time) server {
+# Persistent: available_time
+# On change person: person_id, join_id
+# On edit form submission: new_name, value of checkbox 0
+# To calculate after submission: can_join
+fun spawn_edit_process(eid, available_times, handler_pid) {
+    spawn {
+        fun receiver(maybe_person_join_id) {
+            receive {
+                case SetPerson(person_id, join_id, person_name, can_make_it) ->
+                    hide_joiner_form();
+                    show_edit_form(person_name, can_make_it);
+                    domSetAnchor("edit");
+                    receiver(Just(person_id, join_id))
+                case Delete() ->
+                    switch (maybe_person_join_id) {
+                        case Just(person_id, join_id) ->
+                            delete_join(join_id, eid);
+                        case _ -> ();
+                    };
+                    redrawEvent(eid, handler_pid); 
+                    receiver(Nothing)
+                case SubmitEdit(new_name, can_make_it) ->
+                    switch (maybe_person_join_id) {
+                        case Just(person_id, join_id) ->
+                            ## hackkkk
+                            var available_len = length(available_times) - 1;
+                            var can_join = can_make_it :: (replicate(available_len, false));
+                            update_joiner(person_id, join_id, can_join, new_name, available_times);
+                            redrawEvent(eid, handler_pid);
+                            receiver(Nothing)
+                        case _ -> receiver(maybe_person_join_id);
+                    }
+            }
+        }
+        receiver(Nothing)
+    }
+}
+
+fun setProperty(nodeRef, prop, value) {
+    ignore(domSetPropertyFromRef(nodeRef, prop, value))
+}
+
+fun show_edit_form(person_name, can_make_it) {
+    var editNameInputNode = getNodeById("edit-name");
+    setProperty(editNameInputNode, "value", person_name);
+    var editCheckedNode = getNodeById("edit_0");
+    setProperty(editCheckedNode, "checked", if (can_make_it) { "true" } else { "" }); 
+    var editFormNode = getNodeById("edit-form");
+    domRemoveAttributeFromRef(editFormNode, "hidden")
+}
+
+fun edit_form(handler_process_pid, raw_time) {
+    <#>
+        <div class="panel panel-default" hidden="hidden" id="edit-form">
+            <span id="edit"></span>
+            <div class="panel-body">
+                <div class="row" id="edit-form">
+                    <form class="form-horizontal">
+                        <div class="form-group">
+                            <label for="edit-name" class="col-md-2 control-label">Name</label>
+                            <div class="col-md-8">
+                                <input type="text" class="form-control" id="edit-name" /> 
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit_0" class="col-md-2 control-label">Can you attend SPLS?</label>
+                            <div class="col-md-8">
+                                <div class="checkbox">
+                                    <label>
+                                       {for (i <- intRange(0, length(raw_time) - 1))
+                                           <td>
+                                                <input type="checkbox"  id="edit_{intToString(i)}" />
+                                           </td>
+                                       }
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <div class="col-md-offset-2 col-md-3">
+                                <button class="btn btn-primary" l:onclick="{submit_edit(handler_process_pid)}">Change</button>
+                            </div>
+
+			    <div class="col-md-3">
+			          <div class=".col-md-1"><button class="btn" l:onclick="{handler_process_pid!Cancel()}">Cancel</button><br /></div>
+			    </div>
+
+                            <div class="col-md-4">
+                                <button class="btn btn-danger" l:onclick="{handler_process_pid!Delete()}">Delete</button>
+                            </div>
+
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </#>
+}
+
+fun logout() {
+  setCookie("login_id", "");
+  freshResource();
+  main()
+}
+
+fun get_initial_event_records() server {
+    for (e <-- eventinfo) for (p <-- personinfo) where (e.sponsor_id == p.person_id)
+         [(event_id = e.event_id, person_id = e.sponsor_id, title = e.title, name = p.person_name)]
+
+}
+
+
+fun mainPage() {
+  var hndlr = spawn_handler(1);
+  gen_page(page <#>{event_page(1, hndlr)}</#>)
+}
+
+fun main() {
+  addRoute("/", fun(_) { mainPage() } );
+  servePages()
+}
+
+main()
+
