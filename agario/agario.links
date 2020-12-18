@@ -313,7 +313,7 @@ fun draw(player_id, state: GameState) {
                             jsStroke(ctx)},
                             ys);
 
-        jsClosePath(ctx);
+        jsClosePath(ctx)
 
     }
 
@@ -365,9 +365,9 @@ fun draw(player_id, state: GameState) {
                                 draw_circle(draw_x, draw_y,
                                             player_radius(curr_blob.mass), 3.0,
                                             curr_player.colour.1, curr_player.colour.2, scale);
-                                draw_player_name(curr_player.name, curr_blob.mass, draw_x, draw_y);
+                                draw_player_name(curr_player.name, curr_blob.mass, draw_x, draw_y)
                                 # draw_player_name(itos(curr_blob.mass), curr_blob.mass, draw_x, draw_y);
-                            }, curr_player.blobs));
+                            }, curr_player.blobs))
                     } else {
                         ignore(map(fun(curr_blob) {
                                 var draw_x = (curr_blob.x -. blob.x) *. scale +. x_offset;
@@ -375,9 +375,9 @@ fun draw(player_id, state: GameState) {
                                 draw_circle(draw_x, draw_y,
                                             player_radius(curr_blob.mass), 3.0,
                                             curr_player.colour.1, curr_player.colour.2, scale);
-                                draw_player_name(curr_player.name, curr_blob.mass, draw_x, draw_y);
+                                draw_player_name(curr_player.name, curr_blob.mass, draw_x, draw_y)
                                 # draw_player_name(itos(curr_blob.mass), curr_blob.mass, draw_x, draw_y);
-                                }, curr_player.blobs));
+                                }, curr_player.blobs))
                     };
                     draw_players(player, lsTail(players), scale)
                 }
@@ -404,7 +404,7 @@ fun draw(player_id, state: GameState) {
     if (player_maybe == Nothing) {
         jsSetFillColor(ctx, "black");
         jsCanvasFont(ctx, "60px Ubuntu");
-        jsFillText(ctx, "Game over!", 230.0, 220.0);
+        jsFillText(ctx, "Game over!", 230.0, 220.0)
     } else ();
 
 
@@ -608,7 +608,7 @@ fun update_logic(state: GameState, player_id: Int, in_event: Input) {
 fun on_mousemove(e) {
     var cursor = (getPageX(e), getPageY(e));
     store_int("cursor_x", cursor.1);
-    store_int("cursor_y", cursor.2);
+    store_int("cursor_y", cursor.2)
 }
 
 ####
