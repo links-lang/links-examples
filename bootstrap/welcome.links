@@ -1,8 +1,8 @@
-open Bootstrap
-open Common
+open import Bootstrap;
+open import Common;
 
 
-fun mainPage(_, _) {
+fun mainPage(_) {
 	page
 		<html>
 			{ Bootstrap.header }
@@ -26,6 +26,6 @@ fun mainPage(_, _) {
 }
 
 fun main() {
-	addRoute("/", mainPage);
+	addRoute("/", mainPage)
 }
 

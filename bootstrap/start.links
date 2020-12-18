@@ -1,6 +1,6 @@
-open Welcome
-open DepartmentMembers
-open SchedulingAssistants
+open import Welcome;
+open import DepartmentMembers;
+open import SchedulingAssistants;
 
 fun main() {
 	addRoute("/", Welcome.mainPage);
