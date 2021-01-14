@@ -1,5 +1,5 @@
-open Bootstrap
-open Common
+open import Bootstrap;
+open import Common;
 
 
 var db = database "dellstore" "postgresql" "localhost:5432:links:links";
@@ -37,7 +37,7 @@ fun blank (a) {
 		</html>
 }
 
-fun mainPage(_,_) {
+fun mainPage(_) {
 	var products = getProducts();
 
 	var entryFormlet = fun (prod) {

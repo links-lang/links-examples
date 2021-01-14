@@ -1,5 +1,5 @@
-open Bootstrap
-open Common
+open import Bootstrap;
+open import Common;
 
 
 var dummyEntries = [
@@ -142,7 +142,7 @@ fun entriesPage(entries) {
 		</html>
 }
 
-fun mainPage(_, _) {
+fun mainPage(_) {
 	var entries = dummyEntries;
 	
 	entriesPage(entries)
